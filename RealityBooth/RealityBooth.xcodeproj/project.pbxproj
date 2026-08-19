@@ -6,14 +6,39 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DA7F695D30356A2500FAF797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA7F695A30356A2500FAF797 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		DA7F69463035685500FAF797 /* RealityBooth.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RealityBooth.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA7F69463035685500FAF797 /* RealityBooth.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = RealityBooth.app; path = "/Users/stevenvalentino/Steven Project/App developer/CBL 4/RealityBooth/RealityBooth/build/Debug-iphoneos/RealityBooth.app"; sourceTree = "<absolute>"; };
+		DA7F695A30356A2500FAF797 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DA7F69483035685500FAF797 /* RealityBooth */ = {
+		DA7F696230356D1700FAF797 /* ECS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = RealityBooth;
+			path = ECS;
+			sourceTree = "<group>";
+		};
+		DA7F697530356E3400FAF797 /* ARBridge */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ARBridge;
+			sourceTree = "<group>";
+		};
+		DA7F697E30356E8400FAF797 /* Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Models;
+			sourceTree = "<group>";
+		};
+		DA7F698630356EA400FAF797 /* ViewModels */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		DA7F698C30356EBC00FAF797 /* Views */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,17 +57,13 @@
 		DA7F693D3035685500FAF797 = {
 			isa = PBXGroup;
 			children = (
-				DA7F69483035685500FAF797 /* RealityBooth */,
-				DA7F69473035685500FAF797 /* Products */,
+				DA7F696230356D1700FAF797 /* ECS */,
+				DA7F695A30356A2500FAF797 /* Assets.xcassets */,
+				DA7F698C30356EBC00FAF797 /* Views */,
+				DA7F698630356EA400FAF797 /* ViewModels */,
+				DA7F697E30356E8400FAF797 /* Models */,
+				DA7F697530356E3400FAF797 /* ARBridge */,
 			);
-			sourceTree = "<group>";
-		};
-		DA7F69473035685500FAF797 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				DA7F69463035685500FAF797 /* RealityBooth.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -61,7 +82,11 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				DA7F69483035685500FAF797 /* RealityBooth */,
+				DA7F696230356D1700FAF797 /* ECS */,
+				DA7F697530356E3400FAF797 /* ARBridge */,
+				DA7F697E30356E8400FAF797 /* Models */,
+				DA7F698630356EA400FAF797 /* ViewModels */,
+				DA7F698C30356EBC00FAF797 /* Views */,
 			);
 			name = RealityBooth;
 			packageProductDependencies = (
@@ -95,7 +120,7 @@
 			mainGroup = DA7F693D3035685500FAF797;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = DA7F69473035685500FAF797 /* Products */;
+			productRefGroup = DA7F693D3035685500FAF797;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -109,6 +134,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA7F695D30356A2500FAF797 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
