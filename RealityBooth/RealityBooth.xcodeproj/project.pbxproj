@@ -8,11 +8,19 @@
 
 /* Begin PBXBuildFile section */
 		DA7F695D30356A2500FAF797 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA7F695A30356A2500FAF797 /* Assets.xcassets */; };
+		DA7F698F30356F1500FAF797 /* hab_en.reality in Resources */ = {isa = PBXBuildFile; fileRef = DA7F698E30356F1500FAF797 /* hab_en.reality */; };
+		DA7F699130356F8F00FAF797 /* LunarRover_English.reality in Resources */ = {isa = PBXBuildFile; fileRef = DA7F699030356F8F00FAF797 /* LunarRover_English.reality */; };
+		DA7F69A7303585BB00FAF797 /* Scene.usdz in Resources */ = {isa = PBXBuildFile; fileRef = DA7F69A6303585BB00FAF797 /* Scene.usdz */; };
+		DA7F69A93035867500FAF797 /* test-1a.usdz in Resources */ = {isa = PBXBuildFile; fileRef = DA7F69A83035867500FAF797 /* test-1a.usdz */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		DA7F69463035685500FAF797 /* RealityBooth.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = RealityBooth.app; path = "/Users/stevenvalentino/Steven Project/App developer/CBL 4/RealityBooth/RealityBooth/build/Debug-iphoneos/RealityBooth.app"; sourceTree = "<absolute>"; };
 		DA7F695A30356A2500FAF797 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DA7F698E30356F1500FAF797 /* hab_en.reality */ = {isa = PBXFileReference; lastKnownFileType = file; path = hab_en.reality; sourceTree = "<group>"; };
+		DA7F699030356F8F00FAF797 /* LunarRover_English.reality */ = {isa = PBXFileReference; lastKnownFileType = file; path = LunarRover_English.reality; sourceTree = "<group>"; };
+		DA7F69923035859F00FAF797 /* RealityBooth.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RealityBooth.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA7F69A6303585BB00FAF797 /* Scene.usdz */ = {isa = PBXFileReference; lastKnownFileType = file; path = Scene.usdz; sourceTree = "<group>"; };
+		DA7F69A83035867500FAF797 /* test-1a.usdz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "test-1a.usdz"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -59,11 +67,24 @@
 			children = (
 				DA7F696230356D1700FAF797 /* ECS */,
 				DA7F695A30356A2500FAF797 /* Assets.xcassets */,
+				DA7F69BD3036881E00FAF797 /* Assets */,
 				DA7F698C30356EBC00FAF797 /* Views */,
 				DA7F698630356EA400FAF797 /* ViewModels */,
 				DA7F697E30356E8400FAF797 /* Models */,
 				DA7F697530356E3400FAF797 /* ARBridge */,
+				DA7F69923035859F00FAF797 /* RealityBooth.app */,
 			);
+			sourceTree = "<group>";
+		};
+		DA7F69BD3036881E00FAF797 /* Assets */ = {
+			isa = PBXGroup;
+			children = (
+				DA7F698E30356F1500FAF797 /* hab_en.reality */,
+				DA7F699030356F8F00FAF797 /* LunarRover_English.reality */,
+				DA7F69A6303585BB00FAF797 /* Scene.usdz */,
+				DA7F69A83035867500FAF797 /* test-1a.usdz */,
+			);
+			path = Assets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -92,7 +113,7 @@
 			packageProductDependencies = (
 			);
 			productName = RealityBooth;
-			productReference = DA7F69463035685500FAF797 /* RealityBooth.app */;
+			productReference = DA7F69923035859F00FAF797 /* RealityBooth.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -134,7 +155,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA7F69A7303585BB00FAF797 /* Scene.usdz in Resources */,
+				DA7F699130356F8F00FAF797 /* LunarRover_English.reality in Resources */,
 				DA7F695D30356A2500FAF797 /* Assets.xcassets in Resources */,
+				DA7F69A93035867500FAF797 /* test-1a.usdz in Resources */,
+				DA7F698F30356F1500FAF797 /* hab_en.reality in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
