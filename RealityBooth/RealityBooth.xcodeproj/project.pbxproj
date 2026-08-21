@@ -23,34 +23,6 @@
 		DA7F69A83035867500FAF797 /* test-1a.usdz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "test-1a.usdz"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		DA7F696230356D1700FAF797 /* ECS */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ECS;
-			sourceTree = "<group>";
-		};
-		DA7F697530356E3400FAF797 /* ARBridge */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ARBridge;
-			sourceTree = "<group>";
-		};
-		DA7F697E30356E8400FAF797 /* Models */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Models;
-			sourceTree = "<group>";
-		};
-		DA7F698630356EA400FAF797 /* ViewModels */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ViewModels;
-			sourceTree = "<group>";
-		};
-		DA7F698C30356EBC00FAF797 /* Views */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Views;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		DA7F69433035685500FAF797 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -65,13 +37,8 @@
 		DA7F693D3035685500FAF797 = {
 			isa = PBXGroup;
 			children = (
-				DA7F696230356D1700FAF797 /* ECS */,
 				DA7F695A30356A2500FAF797 /* Assets.xcassets */,
 				DA7F69BD3036881E00FAF797 /* Assets */,
-				DA7F698C30356EBC00FAF797 /* Views */,
-				DA7F698630356EA400FAF797 /* ViewModels */,
-				DA7F697E30356E8400FAF797 /* Models */,
-				DA7F697530356E3400FAF797 /* ARBridge */,
 				DA7F69923035859F00FAF797 /* RealityBooth.app */,
 			);
 			sourceTree = "<group>";
@@ -101,13 +68,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				DA7F696230356D1700FAF797 /* ECS */,
-				DA7F697530356E3400FAF797 /* ARBridge */,
-				DA7F697E30356E8400FAF797 /* Models */,
-				DA7F698630356EA400FAF797 /* ViewModels */,
-				DA7F698C30356EBC00FAF797 /* Views */,
 			);
 			name = RealityBooth;
 			packageProductDependencies = (
