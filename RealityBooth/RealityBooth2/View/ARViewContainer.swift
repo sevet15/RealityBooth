@@ -8,10 +8,17 @@
 import SwiftUI
 import RealityKit
 import ARKit
+import Combine // Added to support async loading
 
 struct ARViewContainer: UIViewRepresentable {
+    // Add a variable to accept the uploaded file URL
+    var modelURL: URL?
+    @Binding var isLoading: Bool // Added binding to communicate loading state back
+    @Binding var resetTrigger: Bool
+    var onPlaced: () -> Void
+
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(parent: self)
     }
 
     func makeUIView(context: Context) -> ARView {
@@ -19,6 +26,8 @@ struct ARViewContainer: UIViewRepresentable {
 
         let config = ARWorldTrackingConfiguration()
         config.planeDetection = [.horizontal]
+        // Enable automatic environment texturing for realistic lighting and reflections
+        config.environmentTexturing = .automatic
         if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
             config.sceneReconstruction = .mesh
         }
@@ -32,41 +41,78 @@ struct ARViewContainer: UIViewRepresentable {
         let rotation = UIRotationGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleRotation(_:)))
         arView.addGestureRecognizer(rotation)
 
-        // load 3d model
-        guard let modelEntity = try? ModelEntity.loadModel(named: "Ferrari") else {
-            print("Failed to load 3D model. Check that Enchant.usdz is in your project")
+        // Add an extra directional light to ensure the object is never too dark
+        let directionalLight = DirectionalLight()
+        directionalLight.light.color = .white
+        directionalLight.light.intensity = 1500
+        directionalLight.light.isRealWorldProxy = false
+        directionalLight.look(at: [0, 0, 0], from: [1, 2, 1], relativeTo: nil)
+        let lightAnchor = AnchorEntity(world: [0, 0, 0])
+        lightAnchor.addChild(directionalLight)
+        arView.scene.addAnchor(lightAnchor)
+
+        // Only attempt to load if a URL is provided
+        guard let url = modelURL else {
+            print("No model uploaded yet. Waiting for user to select a file.")
             return arView
         }
 
-        // scale model
-        modelEntity.scale = [0.1, 0.1, 0.1]
-        modelEntity.generateCollisionShapes(recursive: true)
+        // Load 3D model asynchronously to prevent freezing the UI and allow loading screen to show
+        context.coordinator.loadCancellable = Entity.loadAsync(contentsOf: url)
+            .sink(receiveCompletion: { completion in
+                if case let .failure(error) = completion {
+                    print("Failed to load 3D model: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.isLoading = false
+                    }
+                }
+            }, receiveValue: { loadedEntity in
+                // scale model
+                loadedEntity.scale = [0.1, 0.1, 0.1]
+                
+                // Generate collision shapes safely if it is a ModelEntity (.usdz usually is)
+                if let modelEntity = loadedEntity as? ModelEntity {
+                    modelEntity.generateCollisionShapes(recursive: true)
+                }
 
-        // Attempt an initial placement by raycasting from the center of the screen
-        let center = CGPoint(x: arView.bounds.midX, y: arView.bounds.midY)
-        let results = arView.raycast(from: center, allowing: .estimatedPlane, alignment: .horizontal)
-        guard let firstResult = results.first else {
-            print("No surface found for initial placement - point camera at a flat surface and tap to place.")
-            context.coordinator.selectedEntity = modelEntity
-            return arView
-        }
-
-        let anchorEntity = AnchorEntity(world: firstResult.worldTransform)
-        anchorEntity.addChild(modelEntity)
-        arView.scene.addAnchor(anchorEntity)
-
-        context.coordinator.selectedEntity = modelEntity
-        print("Placed the model - pinch to scale")
+                // Store the loaded entity, but wait for the user to tap to place it
+                context.coordinator.selectedEntity = loadedEntity
+                print("Model loaded. Waiting for user to tap to place.")
+                
+                // Hide the loading overlay now that it's ready
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
+            })
 
         return arView
     }
 
     func updateUIView(_ uiView: ARView, context: Context) {
-        // empty
+        // Handle reset trigger
+        if resetTrigger {
+            if let entity = context.coordinator.selectedEntity {
+                entity.scale = [0.1, 0.1, 0.1]
+                entity.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
+                print("Reset 3D object to starting scale and rotation")
+            }
+            // Asynchronously reset the trigger to avoid state update warnings
+            DispatchQueue.main.async {
+                resetTrigger = false
+            }
+        }
     }
 
     class Coordinator: NSObject {
-        var selectedEntity: ModelEntity?
+        var parent: ARViewContainer
+        var loadCancellable: AnyCancellable? // Holds the async load stream
+        
+        init(parent: ARViewContainer) {
+            self.parent = parent
+        }
+        
+        // Change from ModelEntity to Entity to support both USDZ and Reality scenes
+        var selectedEntity: Entity?
         var initialScale: SIMD3<Float> = [0.1, 0.1, 0.1]
         var initialOrientation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
 
@@ -91,6 +137,9 @@ struct ARViewContainer: UIViewRepresentable {
                 newAnchor.addChild(entity)
                 arView.scene.addAnchor(newAnchor)
                 print("Moved model to new location")
+                
+                // Notify parent that placement was successful
+                parent.onPlaced()
             }
         }
 
