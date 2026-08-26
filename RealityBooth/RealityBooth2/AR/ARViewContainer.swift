@@ -25,7 +25,7 @@ struct ARViewContainer: UIViewRepresentable {
         let arView = ARView(frame: .zero)
 
         let config = ARWorldTrackingConfiguration()
-        config.planeDetection = [.horizontal]
+        config.planeDetection = [.horizontal, .vertical]
         // Enable automatic environment texturing for realistic lighting and reflections
         config.environmentTexturing = .automatic
         if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
@@ -117,8 +117,8 @@ struct ARViewContainer: UIViewRepresentable {
         var initialOrientation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
 
 
-        let minScale: Float = 0.01
-        let maxScale: Float = 1
+        let minScale: Float = 0.001
+        let maxScale: Float = 2
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
             guard let arView = recognizer.view as? ARView else { return }

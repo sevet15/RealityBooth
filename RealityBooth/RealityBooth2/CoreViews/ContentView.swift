@@ -45,8 +45,7 @@ struct ContentView: View {
                         Text("Tap on a flat surface to place the 3D model")
                             .font(.headline)
                             .padding()
-                            .background(Color.black.opacity(0.75))
-                            .foregroundColor(.white)
+                            .background(.ultraThinMaterial)
                             .cornerRadius(10)
                             .padding(.top, 40)
                         
@@ -62,32 +61,56 @@ struct ContentView: View {
                         Button(action: {
                             isShowingFilePicker = true
                         }) {
-                            HStack {
-                                Image(systemName: selectedModelURL == nil ? "square.and.arrow.up" : "folder.badge.gearshape")
+                            HStack(spacing: 12) {
+                                Image(systemName: selectedModelURL == nil ? "square.and.arrow.up" : "folder.fill")
+                                    .font(.title2.weight(.medium))
                                 Text(selectedModelURL == nil ? "Upload 3D Model" : "Change Model")
+                                    .font(.title3.weight(.medium))
                             }
-                            .font(.headline)
-                            .padding()
-                            .background(Color.blue.opacity(0.8))
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 16)
                             .foregroundColor(.white)
-                            .cornerRadius(12)
+                            .background(Color(red: 0.0, green: 0.55, blue: 1.0))
+                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(LinearGradient(colors: [.white.opacity(0.8), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 2)
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(LinearGradient(colors: [.clear, .black.opacity(0.25)], startPoint: .top, endPoint: .bottom), lineWidth: 2)
+                            )
+                            .shadow(color: Color(red: 0.0, green: 0.55, blue: 1.0).opacity(0.5), radius: 10, x: 0, y: 6)
                         }
+                        .buttonStyle(.plain)
                         
                         // Reset Button (Only shows after placing model)
                         if isPlaced {
                             Button(action: {
                                 resetTrigger = true
                             }) {
-                                HStack {
+                                HStack(spacing: 12) {
                                     Image(systemName: "arrow.counterclockwise")
+                                        .font(.title2.weight(.medium))
                                     Text("Reset")
+                                        .font(.title3.weight(.medium))
                                 }
-                                .font(.headline)
-                                .padding()
-                                .background(Color.red.opacity(0.8))
+                                .padding(.horizontal, 28)
+                                .padding(.vertical, 16)
                                 .foregroundColor(.white)
-                                .cornerRadius(12)
+                                .background(Color(red: 0.9, green: 0.2, blue: 0.2))
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(LinearGradient(colors: [.white.opacity(0.8), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 2)
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .stroke(LinearGradient(colors: [.clear, .black.opacity(0.25)], startPoint: .top, endPoint: .bottom), lineWidth: 2)
+                                )
+                                .shadow(color: Color(red: 0.9, green: 0.2, blue: 0.2).opacity(0.5), radius: 10, x: 0, y: 6)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.bottom, 40)
@@ -104,7 +127,6 @@ struct ContentView: View {
             ) { result in
                 switch result {
                 case .success(let url):
-                    // Since it returns a single URL, we can pass it directly
                     processSelectedFile(url: url)
                 case .failure(let error):
                     print("Error selecting file: \(error.localizedDescription)")
@@ -112,7 +134,6 @@ struct ContentView: View {
             }
             
             // --- Splash Screen ---
-            // Sits on top of everything else (Z-Index 2)
             if showSplash {
                 SplashScreenView(showSplash: $showSplash)
                     .zIndex(2)
@@ -130,7 +151,7 @@ struct ContentView: View {
             
             HStack(spacing: 16) {
                 Image(systemName: "hand.tap.fill")
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundColor(.blue)
                     .frame(width: 30)
                 Text("Tap any flat surface to place or move the 3D object.")
@@ -138,7 +159,7 @@ struct ContentView: View {
             }
             
             HStack(spacing: 16) {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                Image(systemName: "hand.pinch.fill")
                     .font(.title2)
                     .foregroundColor(.blue)
                     .frame(width: 30)
@@ -163,9 +184,7 @@ struct ContentView: View {
     }
     
     // --- Helper Functions ---
-    // Helper function to safely copy the file from iCloud/Files into the app's local storage
     private func processSelectedFile(url: URL) {
-        // We must request security access to read files picked from outside the app
         guard url.startAccessingSecurityScopedResource() else {
             print("Failed to access security scoped resource.")
             return
@@ -175,21 +194,18 @@ struct ContentView: View {
             url.stopAccessingSecurityScopedResource()
         }
         
-        // Create a temporary destination URL inside the app
         let tempDirectory = FileManager.default.temporaryDirectory
         let destinationURL = tempDirectory.appendingPathComponent(url.lastPathComponent)
         
         do {
-            // Remove old file if it exists, then copy the new one
             if FileManager.default.fileExists(atPath: destinationURL.path) {
                 try FileManager.default.removeItem(at: destinationURL)
             }
             try FileManager.default.copyItem(at: url, to: destinationURL)
             
-            // Update the state variable to trigger the ARView update
-            self.isLoading = true // Trigger the loading UI
+            self.isLoading = true
             self.selectedModelURL = destinationURL
-            self.isPlaced = false // Reset placement state for the new model
+            self.isPlaced = false
         } catch {
             print("Error copying file: \(error.localizedDescription)")
         }

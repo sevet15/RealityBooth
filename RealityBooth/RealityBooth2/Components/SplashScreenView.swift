@@ -9,11 +9,11 @@ struct SplashScreenView: View {
             Image(systemName: "arkit")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 120, height: 120)
+                .frame(width: 150, height: 150)
                 .foregroundColor(.blue)
             
-            Text("Real Ini")
-                .font(.system(size: 36, weight: .heavy, design: .rounded))
+            Text("Real ini")
+                .font(.system(size: 56, weight: .bold, design: .rounded))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(UIColor.systemBackground))

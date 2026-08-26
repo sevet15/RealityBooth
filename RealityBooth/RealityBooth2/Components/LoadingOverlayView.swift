@@ -5,9 +5,9 @@ struct LoadingOverlayView: View {
         Text("Loading 3D Model...")
             .font(.headline)
             .padding()
-            .background(Color.black.opacity(0.75))
+            .background(Color.orange.opacity(0.75))
             .foregroundColor(.white)
-            .cornerRadius(10)
+            .cornerRadius(12)
     }
 }
 
