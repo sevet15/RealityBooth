@@ -18,7 +18,7 @@ struct SplashScreenView: View {
                 .frame(width: 150, height: 150)
                 .foregroundColor(.blue)
             
-            Text("RealityBooth")
+            Text("Real ini")
                 .font(.system(size: 56, weight: .bold, design: .rounded))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
