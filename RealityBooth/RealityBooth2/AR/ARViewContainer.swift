@@ -16,10 +16,12 @@ struct ARViewContainer: UIViewRepresentable {
     @Binding var selectedModelId: UUID?
     @Binding var isLoading: Bool
     @Binding var resetTrigger: Bool
+    @Binding var takeScreenshotTrigger: Bool
     
     var onModelPlaced: (UUID) -> Void
     var onModelSelected: (UUID) -> Void
     var onModelDeselected: () -> Void
+    var onSnapshotCaptured: ((UIImage) -> Void)? = nil
     var onError: ((Error) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
@@ -95,6 +97,14 @@ struct ARViewContainer: UIViewRepresentable {
             }
             DispatchQueue.main.async {
                 self.resetTrigger = false
+            }
+        }
+        
+        // 4. Handle Screenshot Capture Trigger
+        if takeScreenshotTrigger {
+            context.coordinator.captureSnapshot()
+            DispatchQueue.main.async {
+                self.takeScreenshotTrigger = false
             }
         }
     }
@@ -180,6 +190,16 @@ struct ARViewContainer: UIViewRepresentable {
             }
             modelAnchors.removeValue(forKey: id)
             loadedEntities.removeValue(forKey: id)
+        }
+        
+        func captureSnapshot() {
+            guard let arView = arView else { return }
+            arView.snapshot(saveToHDR: false) { [weak self] image in
+                guard let self = self, let image = image else { return }
+                DispatchQueue.main.async {
+                    self.parent.onSnapshotCaptured?(image)
+                }
+            }
         }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {

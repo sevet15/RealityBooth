@@ -7,14 +7,16 @@
 
 import SwiftUI
 
-/// Elegant glass platter loading overlay indicating asynchronous 3D model parsing and loading
+/// Elegant glass platter loading overlay indicating asynchronous 3D operations
 struct LoadingOverlayView: View {
+    var message: String = "Loading 3D Model…"
+    
     var body: some View {
         HStack(spacing: 12) {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .primary))
             
-            Text("Loading 3D Model…")
+            Text(message)
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.primary)
         }
@@ -26,10 +28,9 @@ struct LoadingOverlayView: View {
             Capsule()
                 .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
         )
-        .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
     }
 }
 
 #Preview {
-    LoadingOverlayView()
+    LoadingOverlayView(message: "Clearing 3D Models…")
 }

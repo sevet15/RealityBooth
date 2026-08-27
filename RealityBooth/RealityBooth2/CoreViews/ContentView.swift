@@ -21,9 +21,15 @@ struct ContentView: View {
     
     // Triggers for ARViewContainer
     @State private var resetTrigger = false
+    @State private var takeScreenshotTrigger = false
+    
+    // Screenshot UI Feedback
+    @State private var showShutterFlash = false
+    @State private var showScreenshotSavedToast = false
     
     // Loading & Splash states
     @State private var isLoading = false
+    @State private var loadingMessage = "Loading 3D Model…"
     @State private var showSplash = true
     
     // Error handling state
@@ -40,6 +46,7 @@ struct ContentView: View {
                 selectedModelId: $selectedModelId,
                 isLoading: $isLoading,
                 resetTrigger: $resetTrigger,
+                takeScreenshotTrigger: $takeScreenshotTrigger,
                 onModelPlaced: { placedId in
                     handleModelPlaced(id: placedId)
                 },
@@ -48,6 +55,9 @@ struct ContentView: View {
                 },
                 onModelDeselected: {
                     self.selectedModelId = nil
+                },
+                onSnapshotCaptured: { image in
+                    handleSnapshotCaptured(image)
                 },
                 onError: { error in
                     showError(error.localizedDescription)
@@ -75,7 +85,7 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // Bottom Multi-Model Control Platter
+                // Bottom Multi-Model Control Bar
                 MultiModelControlBar(
                     models: models,
                     selectedModelId: selectedModelId,
@@ -105,7 +115,7 @@ struct ContentView: View {
             
             // MARK: - Layer 2: Loading Overlay
             if isLoading {
-                LoadingOverlayView()
+                LoadingOverlayView(message: loadingMessage)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     .zIndex(1)
             }
@@ -114,6 +124,42 @@ struct ContentView: View {
             if showSplash {
                 SplashScreenView(showSplash: $showSplash)
                     .zIndex(10)
+            }
+            
+            // MARK: - Layer 4: Shutter Flash Effect
+            if showShutterFlash {
+                Color.white
+                    .ignoresSafeArea()
+                    .opacity(0.85)
+                    .transition(.opacity)
+                    .zIndex(20)
+            }
+            
+            // MARK: - Layer 5: Snapshot Saved Toast Pill
+            if showScreenshotSavedToast {
+                VStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.subheadline)
+                        Text("Snapshot Saved to Photos")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.primary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
+                    )
+                    .padding(.top, 60)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    
+                    Spacer()
+                }
+                .zIndex(25)
             }
         }
         .sheet(isPresented: $showModelPicker) {
@@ -148,7 +194,7 @@ struct ContentView: View {
         } message: {
             Text("This will remove all 3D models from the AR environment.")
         }
-        .alert("Unable to Load Model", isPresented: $showErrorAlert) {
+        .alert("Unable to Complete Action", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage ?? "An unexpected error occurred.")
@@ -157,7 +203,7 @@ struct ContentView: View {
 
     // MARK: - Subviews
     private var topHUDBar: some View {
-        HStack {
+        HStack(spacing: 12) {
             // Scene Capacity Badge Platter
             HStack(spacing: 8) {
                 Image(systemName: "cube.transparent.fill")
@@ -175,33 +221,50 @@ struct ContentView: View {
                 Capsule()
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
             )
-            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 3)
             
             Spacer()
             
-            // Clear All Action Platter
-            if !models.isEmpty {
-                Button(action: {
-                    showClearAllConfirmation = true
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "trash")
-                        Text("Clear All")
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(.ultraThinMaterial)
-                    .foregroundColor(.red)
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(Color.red.opacity(0.2), lineWidth: 0.5)
-                    )
-                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 3)
+            // Top Right Action Buttons: Camera Snapshot & Clear All
+            HStack(spacing: 8) {
+                // Screenshot Camera Button
+                Button(action: triggerScreenshot) {
+                    Image(systemName: "camera.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                        .padding(9)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                        )
                 }
                 .buttonStyle(.plain)
                 .hoverEffect(.highlight)
+                
+                // Clear All Button
+                if !models.isEmpty {
+                    Button(action: {
+                        showClearAllConfirmation = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                            Text("Clear All")
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.red.opacity(0.18))
+                        .foregroundColor(.red)
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(Color.red.opacity(0.25), lineWidth: 0.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .hoverEffect(.highlight)
+                }
             }
         }
         .padding(.horizontal, 20)
@@ -222,7 +285,10 @@ struct ContentView: View {
             .padding(.vertical, 10)
             .background(Color.blue)
             .clipShape(Capsule())
-            .shadow(color: Color.blue.opacity(0.35), radius: 10, x: 0, y: 4)
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
+            )
             .transition(.scale.combined(with: .opacity))
         } else if let selectedId = selectedModelId, let selected = models.first(where: { $0.id == selectedId }) {
             Text("\(selected.name) • Drag to move • Pinch to resize • Twist to rotate")
@@ -236,14 +302,13 @@ struct ContentView: View {
                     Capsule()
                         .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
                 )
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 3)
                 .transition(.opacity)
         }
     }
 
     private var tutorialCard: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Multi-Model AR")
+            Text("Real ini")
                 .font(.title2.bold())
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.bottom, 2)
@@ -273,7 +338,6 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
         )
-        .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8)
         .padding(.horizontal, 24)
         .frame(maxWidth: 440)
     }
@@ -298,6 +362,41 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Screenshot Capture
+    private func triggerScreenshot() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation(.easeInOut(duration: 0.12)) {
+            showShutterFlash = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                self.showShutterFlash = false
+            }
+        }
+        
+        self.takeScreenshotTrigger = true
+    }
+
+    private func handleSnapshotCaptured(_ image: UIImage) {
+        PhotoLibraryManager.shared.saveImage(image) { result in
+            switch result {
+            case .success:
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    self.showScreenshotSavedToast = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        self.showScreenshotSavedToast = false
+                    }
+                }
+            case .failure(let error):
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                showError(error.localizedDescription)
+            }
+        }
+    }
+
     // MARK: - Model Placement & Actions
     private func handleSelectBuiltIn(sample: BuiltInModel) {
         guard models.count < ARConstants.maxSimultaneousModels else {
@@ -313,6 +412,7 @@ struct ContentView: View {
             return
         }
         
+        loadingMessage = "Loading \(sample.name)…"
         let newItem = ARModelItem(
             name: sample.name,
             fileURL: url,
@@ -335,6 +435,7 @@ struct ContentView: View {
             do {
                 let localURL = try ModelFileManager.copyToTemporaryDirectory(from: url)
                 let modelName = url.deletingPathExtension().lastPathComponent
+                loadingMessage = "Loading \(modelName)…"
                 let newItem = ARModelItem(
                     name: modelName.isEmpty ? "Custom Model" : modelName,
                     fileURL: localURL,
@@ -370,10 +471,24 @@ struct ContentView: View {
     }
 
     private func clearAllModels() {
+        loadingMessage = "Clearing 3D Models…"
         withAnimation {
-            models.removeAll()
-            self.selectedModelId = nil
-            self.pendingModel = nil
+            isLoading = true
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation {
+                models.removeAll()
+                self.selectedModelId = nil
+                self.pendingModel = nil
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                withAnimation {
+                    self.isLoading = false
+                    self.loadingMessage = "Loading 3D Model…"
+                }
+            }
         }
     }
 
