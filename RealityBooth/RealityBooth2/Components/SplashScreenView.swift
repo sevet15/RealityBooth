@@ -11,15 +11,15 @@ struct SplashScreenView: View {
     @Binding var showSplash: Bool
     
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "arkit")
+        VStack(spacing: 10) {
+            Image("Logo")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 150, height: 150)
-                .foregroundColor(.blue)
             
             Text("Real ini")
                 .font(.system(size: 56, weight: .bold, design: .rounded))
+                .foregroundStyle(.black)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(UIColor.systemBackground))
