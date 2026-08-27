@@ -11,12 +11,11 @@ import ARKit
 import Combine
 
 struct ARViewContainer: UIViewRepresentable {
+    var models: [ARModelItem]
     var pendingModel: ARModelItem?
     @Binding var selectedModelId: UUID?
     @Binding var isLoading: Bool
     @Binding var resetTrigger: Bool
-    @Binding var deleteTrigger: Bool
-    @Binding var clearAllTrigger: Bool
     
     var onModelPlaced: (UUID) -> Void
     var onModelSelected: (UUID) -> Void
@@ -70,17 +69,25 @@ struct ARViewContainer: UIViewRepresentable {
     func updateUIView(_ uiView: ARView, context: Context) {
         context.coordinator.parent = self
         
-        // Handle pending model loading
+        // 1. Sync removed models: remove anchors and entities for any models no longer in `models`
+        let activeModelIds = Set(models.map { $0.id })
+        let currentAnchoredIds = Array(context.coordinator.modelAnchors.keys)
+        for existingId in currentAnchoredIds {
+            if !activeModelIds.contains(existingId) {
+                context.coordinator.removeModel(id: existingId)
+            }
+        }
+        
+        // 2. Handle pending model loading or cancellation
         if let pending = pendingModel {
             if context.coordinator.currentLoadingId != pending.id && context.coordinator.loadedEntities[pending.id] == nil {
                 context.coordinator.loadPendingModel(pending)
             }
         } else {
-            context.coordinator.currentLoadingId = nil
-            context.coordinator.pendingEntity = nil
+            context.coordinator.cancelPendingModel()
         }
         
-        // Handle Reset Transform Trigger
+        // 3. Handle Reset Transform Trigger
         if resetTrigger {
             if let selectedId = selectedModelId, let entity = context.coordinator.loadedEntities[selectedId] {
                 entity.scale = ARConstants.defaultScale
@@ -91,25 +98,7 @@ struct ARViewContainer: UIViewRepresentable {
             }
         }
         
-        // Handle Delete Model Trigger
-        if deleteTrigger {
-            if let selectedId = selectedModelId {
-                context.coordinator.removeModel(id: selectedId)
-            }
-            DispatchQueue.main.async {
-                self.deleteTrigger = false
-            }
-        }
-        
-        // Handle Clear All Trigger
-        if clearAllTrigger {
-            context.coordinator.clearAllModels()
-            DispatchQueue.main.async {
-                self.clearAllTrigger = false
-            }
-        }
-        
-        // Update selection indicator
+        // 4. Update selection indicator
         context.coordinator.updateSelectionIndicator(selectedId: selectedModelId)
     }
 
@@ -169,6 +158,14 @@ struct ARViewContainer: UIViewRepresentable {
                 })
         }
         
+        func cancelPendingModel() {
+            currentLoadingId = nil
+            loadCancellable?.cancel()
+            loadCancellable = nil
+            pendingEntity?.removeFromParent()
+            pendingEntity = nil
+        }
+        
         private func enableCollisionShapes(on entity: Entity) {
             if let model = entity as? ModelEntity {
                 model.generateCollisionShapes(recursive: true)
@@ -180,8 +177,12 @@ struct ARViewContainer: UIViewRepresentable {
         
         func removeModel(id: UUID) {
             if let anchor = modelAnchors[id] {
+                anchor.children.removeAll()
                 arView?.scene.removeAnchor(anchor)
                 anchor.removeFromParent()
+            }
+            if let entity = loadedEntities[id] {
+                entity.removeFromParent()
             }
             modelAnchors.removeValue(forKey: id)
             loadedEntities.removeValue(forKey: id)
@@ -189,16 +190,6 @@ struct ARViewContainer: UIViewRepresentable {
             if parent.selectedModelId == id {
                 removeSelectionIndicator()
             }
-        }
-        
-        func clearAllModels() {
-            for (_, anchor) in modelAnchors {
-                arView?.scene.removeAnchor(anchor)
-                anchor.removeFromParent()
-            }
-            modelAnchors.removeAll()
-            loadedEntities.removeAll()
-            removeSelectionIndicator()
         }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {

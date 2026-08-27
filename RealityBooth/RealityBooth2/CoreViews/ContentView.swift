@@ -21,8 +21,6 @@ struct ContentView: View {
     
     // Triggers for ARViewContainer
     @State private var resetTrigger = false
-    @State private var deleteTrigger = false
-    @State private var clearAllTrigger = false
     
     // Loading & Splash states
     @State private var isLoading = false
@@ -37,12 +35,11 @@ struct ContentView: View {
         ZStack {
             // --- Main AR Scene ---
             ARViewContainer(
+                models: models,
                 pendingModel: pendingModel,
                 selectedModelId: $selectedModelId,
                 isLoading: $isLoading,
                 resetTrigger: $resetTrigger,
-                deleteTrigger: $deleteTrigger,
-                clearAllTrigger: $clearAllTrigger,
                 onModelPlaced: { placedId in
                     handleModelPlaced(id: placedId)
                 },
@@ -323,16 +320,18 @@ struct ContentView: View {
 
     private func deleteSelectedModel() {
         guard let selectedId = selectedModelId else { return }
-        self.deleteTrigger = true
-        models.removeAll { $0.id == selectedId }
-        self.selectedModelId = nil
+        withAnimation {
+            models.removeAll { $0.id == selectedId }
+            self.selectedModelId = nil
+        }
     }
 
     private func clearAllModels() {
-        self.clearAllTrigger = true
-        models.removeAll()
-        self.selectedModelId = nil
-        self.pendingModel = nil
+        withAnimation {
+            models.removeAll()
+            self.selectedModelId = nil
+            self.pendingModel = nil
+        }
     }
 
     private func showError(_ message: String) {
