@@ -9,11 +9,20 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    // MARK: - State Properties
-    @State private var isShowingFilePicker = false
-    @State private var selectedModelURL: URL?
-    @State private var isPlaced = false
+    // MARK: - Multi-Model State Properties
+    @State private var models: [ARModelItem] = []
+    @State private var pendingModel: ARModelItem?
+    @State private var selectedModelId: UUID?
+    
+    // UI Sheets & Dialogs
+    @State private var showModelPicker = false
+    @State private var showCustomFilePicker = false
+    @State private var showClearAllConfirmation = false
+    
+    // Triggers for ARViewContainer
     @State private var resetTrigger = false
+    @State private var deleteTrigger = false
+    @State private var clearAllTrigger = false
     
     // Loading & Splash states
     @State private var isLoading = false
@@ -26,47 +35,79 @@ struct ContentView: View {
     // MARK: - Body
     var body: some View {
         ZStack {
-            // --- Main AR Interface ---
-            ZStack {
-                ARViewContainer(
-                    modelURL: selectedModelURL,
-                    isLoading: $isLoading,
-                    resetTrigger: $resetTrigger,
-                    onPlaced: {
-                        self.isPlaced = true
+            // --- Main AR Scene ---
+            ARViewContainer(
+                pendingModel: pendingModel,
+                selectedModelId: $selectedModelId,
+                isLoading: $isLoading,
+                resetTrigger: $resetTrigger,
+                deleteTrigger: $deleteTrigger,
+                clearAllTrigger: $clearAllTrigger,
+                onModelPlaced: { placedId in
+                    handleModelPlaced(id: placedId)
+                },
+                onModelSelected: { id in
+                    self.selectedModelId = id
+                },
+                onModelDeselected: {
+                    self.selectedModelId = nil
+                },
+                onError: { error in
+                    showError(error.localizedDescription)
+                }
+            )
+            .edgesIgnoringSafeArea(.all)
+            
+            // --- Top HUD Overlay ---
+            VStack {
+                topHUDBar
+                
+                instructionBanner
+                
+                Spacer()
+            }
+            
+            // --- Empty Scene Tutorial Card ---
+            if models.isEmpty && pendingModel == nil && !isLoading {
+                VStack {
+                    Spacer()
+                    tutorialCard
+                    Spacer()
+                }
+            }
+            
+            // --- Bottom Controls Bar ---
+            VStack {
+                Spacer()
+                MultiModelControlBar(
+                    models: models,
+                    selectedModelId: selectedModelId,
+                    pendingModel: pendingModel,
+                    maxModels: ARConstants.maxSimultaneousModels,
+                    onSelectModel: { id in
+                        self.selectedModelId = id
                     },
-                    onError: { error in
-                        showError(error.localizedDescription)
+                    onDeselectModel: {
+                        self.selectedModelId = nil
+                    },
+                    onDeleteSelectedModel: {
+                        deleteSelectedModel()
+                    },
+                    onResetSelectedModel: {
+                        self.resetTrigger = true
+                    },
+                    onAddTap: {
+                        self.showModelPicker = true
+                    },
+                    onCancelPending: {
+                        self.pendingModel = nil
                     }
                 )
-                .edgesIgnoringSafeArea(.all)
-                .id(selectedModelURL) // Restarts ARView when model URL changes
-                
-                // --- Overlays ---
-                if selectedModelURL == nil {
-                    tutorialCard
-                } else if !isPlaced && !isLoading {
-                    placementInstructionOverlay
-                }
-                
-                // --- Action Controls ---
-                actionButtonsOverlay
-                
-                // --- Loading Overlay ---
-                if isLoading {
-                    LoadingOverlayView()
-                }
             }
-            .fileImporter(
-                isPresented: $isShowingFilePicker,
-                allowedContentTypes: [.usdz, .reality]
-            ) { result in
-                handleFileSelection(result: result)
-            }
-            .alert("Error", isPresented: $showErrorAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(errorMessage ?? "An unexpected error occurred.")
+            
+            // --- Loading Overlay ---
+            if isLoading {
+                LoadingOverlayView()
             }
             
             // --- Splash Screen ---
@@ -75,74 +116,128 @@ struct ContentView: View {
                     .zIndex(2)
             }
         }
-    }
-
-    // MARK: - Subviews
-    private var placementInstructionOverlay: some View {
-        VStack {
-            Text("Tap on a flat surface to place the 3D model")
-                .font(.headline)
-                .padding()
-                .background(.ultraThinMaterial)
-                .cornerRadius(10)
-                .padding(.top, 40)
-            
-            Spacer()
+        .sheet(isPresented: $showModelPicker) {
+            ModelPickerSheet(
+                currentModelCount: models.count,
+                maxModels: ARConstants.maxSimultaneousModels,
+                onSelectBuiltIn: { sample in
+                    handleSelectBuiltIn(sample: sample)
+                },
+                onOpenCustomFilePicker: {
+                    self.showCustomFilePicker = true
+                }
+            )
+            .presentationDetents([.medium])
+        }
+        .fileImporter(
+            isPresented: $showCustomFilePicker,
+            allowedContentTypes: [.usdz, .reality]
+        ) { result in
+            handleCustomFileSelection(result: result)
+        }
+        .confirmationDialog(
+            "Clear All 3D Models?",
+            isPresented: $showClearAllConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear All (\(models.count) Models)", role: .destructive) {
+                clearAllModels()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will remove all 3D models from the AR environment.")
+        }
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage ?? "An unexpected error occurred.")
         }
     }
 
-    private var actionButtonsOverlay: some View {
-        VStack {
+    // MARK: - Subviews
+    private var topHUDBar: some View {
+        HStack {
+            // Scene Status Badge
+            HStack(spacing: 8) {
+                Image(systemName: "cube.transparent.fill")
+                    .foregroundColor(.blue)
+                Text("\(models.count) / \(ARConstants.maxSimultaneousModels) Models")
+                    .font(.subheadline.bold())
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
+            
             Spacer()
-            HStack(spacing: 20) {
-                // Upload / Change Model Button
+            
+            // Clear All Button
+            if !models.isEmpty {
                 Button(action: {
-                    isShowingFilePicker = true
+                    showClearAllConfirmation = true
                 }) {
-                    HStack(spacing: 12) {
-                        Image(systemName: selectedModelURL == nil ? "square.and.arrow.up" : "folder.fill")
-                        Text(selectedModelURL == nil ? "Upload 3D Model" : "Change Model")
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash")
+                        Text("Clear All")
                     }
-                }
-                .buttonStyle(CapsuleActionButtonStyle(backgroundColor: Color(red: 0.0, green: 0.55, blue: 1.0)))
-                
-                // Reset Button
-                if isPlaced {
-                    Button(action: {
-                        resetTrigger = true
-                    }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "arrow.counterclockwise")
-                            Text("Reset")
-                        }
-                    }
-                    .buttonStyle(CapsuleActionButtonStyle(backgroundColor: Color(red: 0.9, green: 0.2, blue: 0.2)))
+                    .font(.caption.bold())
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
+                    .foregroundColor(.red)
+                    .clipShape(Capsule())
                 }
             }
-            .padding(.bottom, 40)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 50)
+    }
+
+    @ViewBuilder
+    private var instructionBanner: some View {
+        if let pending = pendingModel {
+            Text("Tap on a detected flat surface to place \(pending.name)")
+                .font(.subheadline.bold())
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.blue.opacity(0.9))
+                .cornerRadius(12)
+                .padding(.top, 8)
+                .transition(.scale.combined(with: .opacity))
+        } else if let selectedId = selectedModelId, let selected = models.first(where: { $0.id == selectedId }) {
+            Text("\(selected.name) selected • Pinch to scale • Twist to rotate • Tap surface to move")
+                .font(.caption.bold())
+                .foregroundColor(.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial)
+                .cornerRadius(10)
+                .padding(.top, 8)
+                .transition(.opacity)
         }
     }
 
     private var tutorialCard: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("How to use AR")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Multi-Model AR")
+                .font(.title3.bold())
                 .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.bottom, 4)
+                .padding(.bottom, 2)
+            
+            tutorialRow(
+                iconName: "plus.circle.fill",
+                description: "Tap '+ Add Model' to place up to \(ARConstants.maxSimultaneousModels) 3D objects simultaneously."
+            )
             
             tutorialRow(
                 iconName: "hand.tap.fill",
-                description: "Tap any flat surface to place or move the 3D object."
+                description: "Tap any flat surface to place or tap an existing model to select it."
             )
             
             tutorialRow(
                 iconName: "hand.pinch.fill",
-                description: "Pinch with two fingers to scale the object up and down."
-            )
-            
-            tutorialRow(
-                iconName: "arrow.triangle.2.circlepath",
-                description: "Twist with two fingers to rotate the object."
+                description: "Pinch to resize or twist with two fingers to rotate the selected model."
             )
         }
         .padding(24)
@@ -163,21 +258,81 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Actions & File Handling
-    private func handleFileSelection(result: Result<URL, Error>) {
+    // MARK: - Model Placement & Actions
+    private func handleSelectBuiltIn(sample: BuiltInModel) {
+        guard models.count < ARConstants.maxSimultaneousModels else {
+            showError("Maximum capacity reached (\(ARConstants.maxSimultaneousModels) models). Delete a model to add another.")
+            return
+        }
+        
+        let filenameComponents = sample.filename.split(separator: ".")
+        guard let name = filenameComponents.first,
+              let ext = filenameComponents.last,
+              let url = Bundle.main.url(forResource: String(name), withExtension: String(ext)) else {
+            showError("Could not locate sample 3D model: \(sample.filename)")
+            return
+        }
+        
+        let newItem = ARModelItem(
+            name: sample.name,
+            fileURL: url,
+            isBuiltIn: true,
+            isPlaced: false,
+            systemIcon: sample.systemIcon
+        )
+        self.pendingModel = newItem
+        self.selectedModelId = nil
+    }
+
+    private func handleCustomFileSelection(result: Result<URL, Error>) {
+        guard models.count < ARConstants.maxSimultaneousModels else {
+            showError("Maximum capacity reached (\(ARConstants.maxSimultaneousModels) models). Delete a model to add another.")
+            return
+        }
+        
         switch result {
         case .success(let url):
             do {
                 let localURL = try ModelFileManager.copyToTemporaryDirectory(from: url)
-                self.isLoading = true
-                self.selectedModelURL = localURL
-                self.isPlaced = false
+                let modelName = url.deletingPathExtension().lastPathComponent
+                let newItem = ARModelItem(
+                    name: modelName.isEmpty ? "Custom 3D Model" : modelName,
+                    fileURL: localURL,
+                    isBuiltIn: false,
+                    isPlaced: false,
+                    systemIcon: "cube.fill"
+                )
+                self.pendingModel = newItem
+                self.selectedModelId = nil
             } catch {
                 showError(error.localizedDescription)
             }
         case .failure(let error):
             showError(error.localizedDescription)
         }
+    }
+
+    private func handleModelPlaced(id: UUID) {
+        if var placed = pendingModel, placed.id == id {
+            placed.isPlaced = true
+            models.append(placed)
+            self.selectedModelId = id
+            self.pendingModel = nil
+        }
+    }
+
+    private func deleteSelectedModel() {
+        guard let selectedId = selectedModelId else { return }
+        self.deleteTrigger = true
+        models.removeAll { $0.id == selectedId }
+        self.selectedModelId = nil
+    }
+
+    private func clearAllModels() {
+        self.clearAllTrigger = true
+        models.removeAll()
+        self.selectedModelId = nil
+        self.pendingModel = nil
     }
 
     private func showError(_ message: String) {
