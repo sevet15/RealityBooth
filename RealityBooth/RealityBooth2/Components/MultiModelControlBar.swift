@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+/// Bottom floating control platter for managing multiple 3D models in the AR scene
 struct MultiModelControlBar: View {
     let models: [ARModelItem]
     let selectedModelId: UUID?
@@ -26,58 +27,74 @@ struct MultiModelControlBar: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            // Selected Model Actions Overlay (if a model is selected)
+            // MARK: - Selected Model Inspector Platter
             if let selectedId = selectedModelId, let selected = models.first(where: { $0.id == selectedId }) {
-                HStack(spacing: 14) {
+                HStack(spacing: 12) {
                     Label(selected.name, systemImage: selected.systemIcon)
-                        .font(.subheadline.bold())
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(.primary)
                         .lineLimit(1)
                     
                     Spacer()
                     
-                    // Reset Transform Button
+                    // Reset Pose Button (White Styling)
                     Button(action: onResetSelectedModel) {
                         Label("Reset", systemImage: "arrow.counterclockwise")
-                            .font(.caption.bold())
-                            .padding(.horizontal, 12)
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Color.blue.opacity(0.15))
-                            .foregroundColor(.blue)
+                            .background(Color.white.opacity(0.22))
+                            .foregroundColor(.white)
                             .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.5)
+                            )
                     }
+                    .buttonStyle(.plain)
+                    .hoverEffect(.highlight)
                     
                     // Delete Button
                     Button(action: onDeleteSelectedModel) {
                         Image(systemName: "trash.fill")
-                            .font(.caption.bold())
+                            .font(.caption.weight(.semibold))
                             .padding(8)
-                            .background(Color.red.opacity(0.15))
+                            .background(Color.red.opacity(0.12))
                             .foregroundColor(.red)
                             .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
+                    .hoverEffect(.highlight)
                     
                     // Deselect Button
                     Button(action: onDeselectModel) {
                         Image(systemName: "xmark")
-                            .font(.caption.bold())
+                            .font(.caption.weight(.bold))
                             .padding(8)
-                            .background(Color.gray.opacity(0.2))
+                            .background(Color.primary.opacity(0.08))
                             .foregroundColor(.secondary)
                             .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
+                    .hoverEffect(.highlight)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(.ultraThinMaterial)
-                .cornerRadius(16)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 4)
                 .padding(.horizontal, 20)
+                .frame(maxWidth: 540)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
-            // Models Carousel & Add Controls
+            // MARK: - Bottom Main Controls Platter
             HStack(spacing: 12) {
-                // Models List Scroll (if there are placed models)
+                // Models Carousel (if models are placed)
                 if !models.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -94,21 +111,28 @@ struct MultiModelControlBar: View {
                                         Image(systemName: item.systemIcon)
                                             .font(.caption)
                                         Text(item.name)
-                                            .font(.caption.weight(isSelected ? .bold : .medium))
+                                            .font(.caption.weight(isSelected ? .semibold : .medium))
                                             .lineLimit(1)
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
-                                    .background(isSelected ? Color.blue : Color(UIColor.systemBackground).opacity(0.85))
+                                    .background(
+                                        isSelected
+                                            ? Color.blue
+                                            : Color(UIColor.secondarySystemFill)
+                                    )
                                     .foregroundColor(isSelected ? .white : .primary)
                                     .clipShape(Capsule())
                                     .overlay(
                                         Capsule()
-                                            .stroke(isSelected ? Color.white.opacity(0.8) : Color.clear, lineWidth: 1.5)
+                                            .strokeBorder(
+                                                isSelected ? Color.white.opacity(0.4) : Color.white.opacity(0.15),
+                                                lineWidth: 1
+                                            )
                                     )
-                                    .shadow(color: isSelected ? Color.blue.opacity(0.4) : Color.black.opacity(0.1), radius: 4)
                                 }
                                 .buttonStyle(.plain)
+                                .hoverEffect(.highlight)
                             }
                         }
                         .padding(.vertical, 4)
@@ -116,39 +140,53 @@ struct MultiModelControlBar: View {
                     .frame(maxWidth: .infinity)
                 }
                 
-                // Add / Cancel Button
+                // Add / Cancel Action Button
                 if pendingModel != nil {
                     Button(action: onCancelPending) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "xmark.circle.fill")
+                        HStack(spacing: 6) {
+                            Image(systemName: "xmark")
                             Text("Cancel")
                         }
                     }
                     .buttonStyle(CapsuleActionButtonStyle(backgroundColor: Color.gray))
                 } else {
                     Button(action: onAddTap) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 6) {
                             Image(systemName: isMaxReached ? "lock.fill" : "plus")
-                            Text(models.isEmpty ? "Add 3D Model" : "Add (\(models.count)/\(maxModels))")
+                            Text(models.isEmpty ? "Add Model" : "Add (\(models.count)/\(maxModels))")
                         }
                     }
-                    .buttonStyle(CapsuleActionButtonStyle(backgroundColor: isMaxReached ? Color.gray : Color(red: 0.0, green: 0.55, blue: 1.0)))
+                    .buttonStyle(
+                        CapsuleActionButtonStyle(
+                            backgroundColor: isMaxReached ? Color.gray : Color.blue,
+                            isEnabled: !isMaxReached
+                        )
+                    )
                     .disabled(isMaxReached)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+            )
+            .shadow(color: Color.black.opacity(0.14), radius: 14, x: 0, y: 6)
             .padding(.horizontal, 20)
+            .frame(maxWidth: 640)
         }
-        .padding(.bottom, 24)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedModelId)
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: models)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedModelId)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: models)
     }
 }
 
 #Preview {
     MultiModelControlBar(
         models: [
-            ARModelItem(name: "Ferrari", fileURL: URL(fileURLWithPath: "/"), systemIcon: "car.fill"),
-            ARModelItem(name: "Enchant", fileURL: URL(fileURLWithPath: "/"), systemIcon: "sparkles")
+            ARModelItem(name: "Model 1", fileURL: URL(fileURLWithPath: "/"), systemIcon: "cube.fill"),
+            ARModelItem(name: "Model 2", fileURL: URL(fileURLWithPath: "/"), systemIcon: "cube.transparent")
         ],
         selectedModelId: nil,
         pendingModel: nil,

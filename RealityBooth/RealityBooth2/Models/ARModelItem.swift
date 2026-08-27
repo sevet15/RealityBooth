@@ -39,14 +39,31 @@ struct ARModelItem: Identifiable, Equatable {
 }
 
 /// Sample models bundled within the application for quick testing
-struct BuiltInModel {
+struct BuiltInModel: Identifiable, Hashable {
+    var id: String { filename }
     let name: String
     let filename: String
     let systemIcon: String
     let subtitle: String
     
     static let samples: [BuiltInModel] = [
-        BuiltInModel(name: "Ferrari", filename: "Ferrari.usdz", systemIcon: "car.fill", subtitle: "Sports Car 3D Model"),
-        BuiltInModel(name: "Enchant", filename: "Enchant.usdz", systemIcon: "sparkles", subtitle: "Character 3D Model")
+        BuiltInModel(
+            name: "Model 1",
+            filename: "Model1.usdz",
+            systemIcon: "cube.fill",
+            subtitle: "Sample 3D Asset • USDZ"
+        ),
+        BuiltInModel(
+            name: "Model 2",
+            filename: "Model2.usdz",
+            systemIcon: "cube.transparent",
+            subtitle: "Sample 3D Asset • USDZ"
+        ),
+        BuiltInModel(
+            name: "Model 3",
+            filename: "Model3.usdz",
+            systemIcon: "sparkles",
+            subtitle: "Sample 3D Asset • USDZ"
+        )
     ]
 }

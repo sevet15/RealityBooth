@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+/// Modal sheet for selecting built-in sample models or importing custom USDZ / Reality files
 struct ModelPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     
@@ -15,91 +16,126 @@ struct ModelPickerSheet: View {
     let onSelectBuiltIn: (BuiltInModel) -> Void
     let onOpenCustomFilePicker: () -> Void
     
+    var isMaxCapacity: Bool {
+        currentModelCount >= maxModels
+    }
+    
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                // Capacity indicator
-                HStack {
-                    Label("\(currentModelCount) of \(maxModels) models in scene", systemImage: "square.stack.3d.up")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(spacing: 24) {
+                    // MARK: - Scene Capacity Indicator
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.stack.3d.up.fill")
+                            .foregroundColor(.blue)
+                        Text("\(currentModelCount) of \(maxModels) models in scene")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
                     
-                    Spacer()
-                }
-                .padding(.horizontal)
-                .padding(.top, 10)
-                
-                // Sample Models Section
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Sample 3D Models")
-                        .font(.headline)
-                        .padding(.horizontal)
+                    // MARK: - Sample Models Section
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Sample 3D Models")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 10) {
+                            ForEach(BuiltInModel.samples) { sample in
+                                Button(action: {
+                                    onSelectBuiltIn(sample)
+                                    dismiss()
+                                }) {
+                                    HStack(spacing: 16) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.blue.opacity(0.12))
+                                                .frame(width: 46, height: 46)
+                                            Image(systemName: sample.systemIcon)
+                                                .font(.title3)
+                                                .foregroundColor(.blue)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(sample.name)
+                                                .font(.body.weight(.semibold))
+                                                .foregroundColor(.primary)
+                                            Text(sample.subtitle)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.title3)
+                                            .foregroundColor(.blue)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .background(Color(UIColor.secondarySystemGroupedBackground))
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                .hoverEffect(.highlight)
+                                .padding(.horizontal)
+                            }
+                        }
+                    }
                     
-                    ForEach(BuiltInModel.samples, id: \.filename) { sample in
+                    // MARK: - Custom Import Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Custom Files")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal)
+                        
                         Button(action: {
-                            onSelectBuiltIn(sample)
                             dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                onOpenCustomFilePicker()
+                            }
                         }) {
                             HStack(spacing: 16) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.blue.opacity(0.15))
-                                        .frame(width: 48, height: 48)
-                                    Image(systemName: sample.systemIcon)
+                                        .fill(Color.indigo.opacity(0.12))
+                                        .frame(width: 46, height: 46)
+                                    Image(systemName: "folder.badge.plus")
                                         .font(.title3)
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(.indigo)
                                 }
                                 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(sample.name)
-                                        .font(.headline)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Import from Files")
+                                        .font(.body.weight(.semibold))
                                         .foregroundColor(.primary)
-                                    Text(sample.subtitle)
+                                    Text("Supports .usdz and .reality formats")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
                                 
                                 Spacer()
                                 
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title3)
-                                    .foregroundColor(.blue)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundColor(.secondary)
                             }
-                            .padding()
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
                             .background(Color(UIColor.secondarySystemGroupedBackground))
-                            .cornerRadius(14)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .hoverEffect(.highlight)
                         .padding(.horizontal)
                     }
                 }
-                
-                Divider()
-                    .padding(.horizontal)
-                
-                // Custom Upload Option
-                Button(action: {
-                    dismiss()
-                    // Small delay to ensure sheet dismisses before file picker presents
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        onOpenCustomFilePicker()
-                    }
-                }) {
-                    HStack(spacing: 14) {
-                        Image(systemName: "folder.badge.plus")
-                            .font(.title3)
-                        Text("Import from Files (.usdz, .reality)")
-                            .font(.headline)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(14)
-                    .padding(.horizontal)
-                }
-                
-                Spacer()
+                .padding(.vertical, 12)
             }
             .background(Color(UIColor.systemGroupedBackground))
             .navigationTitle("Add 3D Model")
@@ -117,7 +153,7 @@ struct ModelPickerSheet: View {
 
 #Preview {
     ModelPickerSheet(
-        currentModelCount: 2,
+        currentModelCount: 1,
         maxModels: 4,
         onSelectBuiltIn: { _ in },
         onOpenCustomFilePicker: { }

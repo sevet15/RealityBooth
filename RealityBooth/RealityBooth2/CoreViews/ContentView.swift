@@ -33,7 +33,7 @@ struct ContentView: View {
     // MARK: - Body
     var body: some View {
         ZStack {
-            // --- Main AR Scene ---
+            // MARK: - Layer 0: Main AR Scene
             ARViewContainer(
                 models: models,
                 pendingModel: pendingModel,
@@ -53,29 +53,29 @@ struct ContentView: View {
                     showError(error.localizedDescription)
                 }
             )
-            .edgesIgnoringSafeArea(.all)
+            .ignoresSafeArea()
             
-            // --- Top HUD Overlay ---
-            VStack {
-                topHUDBar
-                
-                instructionBanner
-                
-                Spacer()
-            }
-            
-            // --- Empty Scene Tutorial Card ---
-            if models.isEmpty && pendingModel == nil && !isLoading {
-                VStack {
-                    Spacer()
-                    tutorialCard
-                    Spacer()
+            // MARK: - Layer 1: Foreground HUD & Controls
+            VStack(spacing: 0) {
+                // Top HUD Bar & Instruction Banner
+                VStack(spacing: 8) {
+                    topHUDBar
+                    
+                    instructionBanner
                 }
-            }
-            
-            // --- Bottom Controls Bar ---
-            VStack {
+                .padding(.top, 8)
+                
                 Spacer()
+                
+                // Empty Scene Tutorial Guidance Card
+                if models.isEmpty && pendingModel == nil && !isLoading {
+                    tutorialCard
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
+                
+                Spacer()
+                
+                // Bottom Multi-Model Control Platter
                 MultiModelControlBar(
                     models: models,
                     selectedModelId: selectedModelId,
@@ -100,17 +100,20 @@ struct ContentView: View {
                         self.pendingModel = nil
                     }
                 )
+                .padding(.bottom, 12)
             }
             
-            // --- Loading Overlay ---
+            // MARK: - Layer 2: Loading Overlay
             if isLoading {
                 LoadingOverlayView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .zIndex(1)
             }
             
-            // --- Splash Screen ---
+            // MARK: - Layer 3: Splash Screen
             if showSplash {
                 SplashScreenView(showSplash: $showSplash)
-                    .zIndex(2)
+                    .zIndex(10)
             }
         }
         .sheet(isPresented: $showModelPicker) {
@@ -124,7 +127,8 @@ struct ContentView: View {
                     self.showCustomFilePicker = true
                 }
             )
-            .presentationDetents([.medium])
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .fileImporter(
             isPresented: $showCustomFilePicker,
@@ -133,18 +137,18 @@ struct ContentView: View {
             handleCustomFileSelection(result: result)
         }
         .confirmationDialog(
-            "Clear All 3D Models?",
+            "Clear All Models?",
             isPresented: $showClearAllConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Clear All (\(models.count) Models)", role: .destructive) {
+            Button("Clear All", role: .destructive) {
                 clearAllModels()
             }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will remove all 3D models from the AR environment.")
         }
-        .alert("Error", isPresented: $showErrorAlert) {
+        .alert("Unable to Load Model", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage ?? "An unexpected error occurred.")
@@ -154,21 +158,28 @@ struct ContentView: View {
     // MARK: - Subviews
     private var topHUDBar: some View {
         HStack {
-            // Scene Status Badge
+            // Scene Capacity Badge Platter
             HStack(spacing: 8) {
                 Image(systemName: "cube.transparent.fill")
                     .foregroundColor(.blue)
-                Text("\(models.count) / \(ARConstants.maxSimultaneousModels) Models")
-                    .font(.subheadline.bold())
+                    .font(.subheadline)
+                Text("\(models.count) of \(ARConstants.maxSimultaneousModels) Models")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(.ultraThinMaterial)
             .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+            )
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 3)
             
             Spacer()
             
-            // Clear All Button
+            // Clear All Action Platter
             if !models.isEmpty {
                 Button(action: {
                     showClearAllConfirmation = true
@@ -177,40 +188,55 @@ struct ContentView: View {
                         Image(systemName: "trash")
                         Text("Clear All")
                     }
-                    .font(.caption.bold())
-                    .padding(.horizontal, 12)
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial)
                     .foregroundColor(.red)
                     .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.red.opacity(0.2), lineWidth: 0.5)
+                    )
+                    .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 3)
                 }
+                .buttonStyle(.plain)
+                .hoverEffect(.highlight)
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 50)
+        .frame(maxWidth: 640)
     }
 
     @ViewBuilder
     private var instructionBanner: some View {
         if let pending = pendingModel {
-            Text("Tap on a detected flat surface to place \(pending.name)")
-                .font(.subheadline.bold())
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color.blue.opacity(0.9))
-                .cornerRadius(12)
-                .padding(.top, 8)
-                .transition(.scale.combined(with: .opacity))
+            HStack(spacing: 8) {
+                Image(systemName: "hand.tap.fill")
+                    .font(.subheadline)
+                Text("Tap a flat surface to place \(pending.name)")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.blue)
+            .clipShape(Capsule())
+            .shadow(color: Color.blue.opacity(0.35), radius: 10, x: 0, y: 4)
+            .transition(.scale.combined(with: .opacity))
         } else if let selectedId = selectedModelId, let selected = models.first(where: { $0.id == selectedId }) {
-            Text("\(selected.name) selected • Pinch to scale • Twist to rotate • Tap surface to move")
-                .font(.caption.bold())
+            Text("\(selected.name) • Drag to move • Pinch to resize • Twist to rotate")
+                .font(.caption.weight(.semibold))
                 .foregroundColor(.primary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(.ultraThinMaterial)
-                .cornerRadius(10)
-                .padding(.top, 8)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                )
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 3)
                 .transition(.opacity)
         }
     }
@@ -218,40 +244,57 @@ struct ContentView: View {
     private var tutorialCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Multi-Model AR")
-                .font(.title3.bold())
+                .font(.title2.bold())
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.bottom, 2)
             
             tutorialRow(
                 iconName: "plus.circle.fill",
-                description: "Tap '+ Add Model' to place up to \(ARConstants.maxSimultaneousModels) 3D objects simultaneously."
+                title: "Add 3D Models",
+                description: "Place up to \(ARConstants.maxSimultaneousModels) models simultaneously into your physical space."
             )
             
             tutorialRow(
                 iconName: "hand.tap.fill",
-                description: "Tap any flat surface to place or tap an existing model to select it."
+                title: "Detect & Place",
+                description: "Point camera at a flat surface and tap to position objects."
             )
             
             tutorialRow(
                 iconName: "hand.pinch.fill",
-                description: "Pinch to resize or twist with two fingers to rotate the selected model."
+                title: "Transform & Move",
+                description: "Drag to reposition, pinch to scale, and twist with two fingers to rotate."
             )
         }
         .padding(24)
         .background(.ultraThinMaterial)
-        .cornerRadius(20)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8)
         .padding(.horizontal, 24)
-        .shadow(radius: 10)
+        .frame(maxWidth: 440)
     }
 
-    private func tutorialRow(iconName: String, description: String) -> some View {
-        HStack(spacing: 16) {
+    private func tutorialRow(iconName: String, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
             Image(systemName: iconName)
                 .font(.title2)
                 .foregroundColor(.blue)
-                .frame(width: 30)
-            Text(description)
-                .font(.subheadline)
+                .frame(width: 32)
+                .padding(.top, 2)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                Text(description)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -293,7 +336,7 @@ struct ContentView: View {
                 let localURL = try ModelFileManager.copyToTemporaryDirectory(from: url)
                 let modelName = url.deletingPathExtension().lastPathComponent
                 let newItem = ARModelItem(
-                    name: modelName.isEmpty ? "Custom 3D Model" : modelName,
+                    name: modelName.isEmpty ? "Custom Model" : modelName,
                     fileURL: localURL,
                     isBuiltIn: false,
                     isPlaced: false,

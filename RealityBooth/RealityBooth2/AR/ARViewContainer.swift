@@ -97,9 +97,6 @@ struct ARViewContainer: UIViewRepresentable {
                 self.resetTrigger = false
             }
         }
-        
-        // 4. Update selection indicator
-        context.coordinator.updateSelectionIndicator(selectedId: selectedModelId)
     }
 
     static func dismantleUIView(_ uiView: ARView, coordinator: Coordinator) {
@@ -119,9 +116,6 @@ struct ARViewContainer: UIViewRepresentable {
         // Store all placed entities and anchors by model ID
         var loadedEntities: [UUID: Entity] = [:]
         var modelAnchors: [UUID: AnchorEntity] = [:]
-        
-        // Selection visual ring
-        var selectionIndicatorAnchor: AnchorEntity?
         
         // Transform tracking for active gestures
         var initialScale: SIMD3<Float> = ARConstants.defaultScale
@@ -186,10 +180,6 @@ struct ARViewContainer: UIViewRepresentable {
             }
             modelAnchors.removeValue(forKey: id)
             loadedEntities.removeValue(forKey: id)
-            
-            if parent.selectedModelId == id {
-                removeSelectionIndicator()
-            }
         }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
@@ -237,8 +227,6 @@ struct ARViewContainer: UIViewRepresentable {
                 newAnchor.addChild(entity)
                 arView.scene.addAnchor(newAnchor)
                 modelAnchors[selectedId] = newAnchor
-                
-                updateSelectionIndicator(selectedId: selectedId)
                 return
             }
             
@@ -307,36 +295,6 @@ struct ARViewContainer: UIViewRepresentable {
             if recognizer.state == .changed {
                 currentAnchor.setTransformMatrix(firstResult.worldTransform, relativeTo: nil)
             }
-        }
-        
-        func updateSelectionIndicator(selectedId: UUID?) {
-            guard let selectedId = selectedId, let anchor = modelAnchors[selectedId] else {
-                removeSelectionIndicator()
-                return
-            }
-            
-            if selectionIndicatorAnchor == nil {
-                // Create a subtle circular highlight beneath the selected object
-                let ringMesh = MeshResource.generatePlane(width: 0.35, depth: 0.35, cornerRadius: 0.175)
-                var material = UnlitMaterial(color: UIColor.systemBlue.withAlphaComponent(0.4))
-                material.blending = .transparent(opacity: 0.5)
-                let ringEntity = ModelEntity(mesh: ringMesh, materials: [material])
-                ringEntity.position = [0, 0.002, 0] // Slightly above plane
-                
-                let indicatorAnchor = AnchorEntity()
-                indicatorAnchor.addChild(ringEntity)
-                selectionIndicatorAnchor = indicatorAnchor
-            }
-            
-            if let indicator = selectionIndicatorAnchor {
-                indicator.removeFromParent()
-                anchor.addChild(indicator)
-            }
-        }
-        
-        func removeSelectionIndicator() {
-            selectionIndicatorAnchor?.removeFromParent()
-            selectionIndicatorAnchor = nil
         }
     }
 }

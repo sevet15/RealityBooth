@@ -7,42 +7,44 @@
 
 import SwiftUI
 
-/// A modern, reusable capsule button style featuring glassmorphism borders and interactive press feedback
+/// A modern, HIG-compliant capsule button style featuring glassmorphism platter highlights and iPad hover effect
 struct CapsuleActionButtonStyle: ButtonStyle {
-    var backgroundColor: Color
+    var backgroundColor: Color = Color.accentColor
+    var isEnabled: Bool = true
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.title3.weight(.medium))
+            .font(.headline.weight(.semibold))
             .foregroundColor(.white)
-            .padding(.horizontal, 28)
-            .padding(.vertical, 16)
-            .background(backgroundColor)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(
+                backgroundColor
+                    .opacity(isEnabled ? 1.0 : 0.6)
+            )
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(
+                    .strokeBorder(
                         LinearGradient(
-                            colors: [.white.opacity(0.8), .clear],
+                            colors: [
+                                Color.white.opacity(0.35),
+                                Color.white.opacity(0.08)
+                            ],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
-                        lineWidth: 2
+                        lineWidth: 1
                     )
             )
-            .overlay(
-                Capsule()
-                    .stroke(
-                        LinearGradient(
-                            colors: [.clear, .black.opacity(0.25)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 2
-                    )
+            .shadow(
+                color: isEnabled ? backgroundColor.opacity(0.35) : Color.clear,
+                radius: 8,
+                x: 0,
+                y: 4
             )
-            .shadow(color: backgroundColor.opacity(0.5), radius: 10, x: 0, y: 6)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
+            .hoverEffect(.automatic)
     }
 }
