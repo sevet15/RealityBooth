@@ -10,11 +10,18 @@ import simd
 
 /// Global constants for AR and 3D object manipulation
 enum ARConstants {
+    // MARK: - Multi-Model Constraints
+    static let maxSimultaneousModels: Int = 4
+    
     // MARK: - Scale & Transform
     static let defaultScale: SIMD3<Float> = SIMD3<Float>(0.1, 0.1, 0.1)
     static let minScale: Float = 0.001
     static let maxScale: Float = 2.0
     static let defaultOrientation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
+    
+    // MARK: - Selection Indicator
+    static let selectionRingRadius: Float = 0.25
+    static let selectionRingThickness: Float = 0.015
     
     // MARK: - Lighting
     static let directionalLightIntensity: Float = 1800.0

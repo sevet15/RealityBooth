@@ -11,18 +11,27 @@ struct SplashScreenView: View {
     @Binding var showSplash: Bool
     
     var body: some View {
-        VStack(spacing: 10) {
-            Image("Logo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 150, height: 150)
+        ZStack {
+            Color(UIColor.systemBackground)
+                .ignoresSafeArea()
             
-            Text("Real ini")
-                .font(.system(size: 56, weight: .bold, design: .rounded))
-                .foregroundStyle(.black)
+            VStack(spacing: 16) {
+                Image("Logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 130, height: 130)
+                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+                
+                Text("Real ini")
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                
+                Text("Augmented Reality Studio")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemBackground))
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + ARConstants.splashScreenDuration) {
                 withAnimation(.easeOut(duration: ARConstants.splashScreenFadeDuration)) {

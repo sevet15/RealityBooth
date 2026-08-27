@@ -10,6 +10,6 @@ import UniformTypeIdentifiers
 extension UTType {
     /// Uniform Type Identifier for Apple Reality Composer files (.reality)
     static var reality: UTType {
-        UTType(exportedAs: "com.apple.reality")
+        UTType(filenameExtension: "reality") ?? UTType("com.apple.reality") ?? .data
     }
 }
