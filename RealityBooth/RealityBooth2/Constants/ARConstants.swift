@@ -17,7 +17,7 @@ enum ARConstants {
     static let defaultOrientation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
     
     // MARK: - Lighting
-    static let directionalLightIntensity: Float = 1500.0
+    static let directionalLightIntensity: Float = 1800.0
     static let lightPosition: SIMD3<Float> = SIMD3<Float>(1, 2, 1)
     static let lightTarget: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
     
