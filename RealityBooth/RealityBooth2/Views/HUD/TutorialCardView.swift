@@ -11,7 +11,7 @@ import SwiftUI
 struct TutorialCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Real ini")
+            Text("Tutorial")
                 .font(.title2.bold())
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity, alignment: .center)

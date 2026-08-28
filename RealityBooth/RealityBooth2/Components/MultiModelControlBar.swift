@@ -211,7 +211,7 @@ struct MultiModelControlBar: View {
                         HStack(spacing: 5) {
                             Image(systemName: isMaxReached ? "lock.fill" : "plus")
                                 .font(.subheadline.weight(.bold))
-                            Text("Add (\(models.count)/\(maxModels))")
+                            Text("Add")
                                 .font(.subheadline.weight(.semibold))
                         }
                         .foregroundColor(.white)

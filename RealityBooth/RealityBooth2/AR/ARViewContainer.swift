@@ -8,20 +8,20 @@
 import SwiftUI
 import RealityKit
 import ARKit
-import Combine
 
 struct ARViewContainer: UIViewRepresentable {
     var models: [ARModelItem]
     var pendingModel: ARModelItem?
-    @Binding var selectedModelId: UUID?
-    @Binding var isLoading: Bool
-    @Binding var resetTrigger: Bool
-    @Binding var takeScreenshotTrigger: Bool
+    var selectedModelId: UUID?
+    var resetTrigger: Bool
+    var takeScreenshotTrigger: Bool
     
     var onModelPlaced: (UUID) -> Void
     var onModelSelected: (UUID) -> Void
     var onModelDeselected: () -> Void
     var onSnapshotCaptured: ((UIImage) -> Void)? = nil
+    var onResetHandled: (() -> Void)? = nil
+    var onLoadingStateChanged: ((Bool) -> Void)? = nil
     var onError: ((Error) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
@@ -99,6 +99,9 @@ struct ARViewContainer: UIViewRepresentable {
     func updateUIView(_ uiView: ARView, context: Context) {
         context.coordinator.parent = self
         
+        // 0. Update 3D Selection Highlight in AR Space
+        context.coordinator.updateSelectionIndicator(for: selectedModelId)
+        
         // 1. Sync removed models: remove anchors and entities for any models no longer in `models`
         let activeModelIds = Set(models.map { $0.id })
         let currentAnchoredIds = Array(context.coordinator.modelAnchors.keys)
@@ -123,22 +126,17 @@ struct ARViewContainer: UIViewRepresentable {
                 entity.scale = SIMD3<Float>(1, 1, 1)
                 entity.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
             }
-            DispatchQueue.main.async {
-                self.resetTrigger = false
-            }
+            context.coordinator.onResetTriggerHandled()
         }
         
         // 4. Handle Screenshot Capture Trigger
         if takeScreenshotTrigger {
             context.coordinator.captureSnapshot()
-            DispatchQueue.main.async {
-                self.takeScreenshotTrigger = false
-            }
         }
     }
 
     static func dismantleUIView(_ uiView: ARView, coordinator: Coordinator) {
-        coordinator.loadCancellable?.cancel()
+        coordinator.loadTask?.cancel()
         uiView.session.pause()
         uiView.scene.anchors.removeAll()
     }
@@ -147,7 +145,7 @@ struct ARViewContainer: UIViewRepresentable {
         var parent: ARViewContainer
         weak var arView: ARView?
         
-        var loadCancellable: AnyCancellable?
+        var loadTask: Task<Void, Never>?
         var currentLoadingId: UUID?
         var pendingEntity: Entity?
         private var isCapturingSnapshot = false
@@ -164,22 +162,48 @@ struct ARViewContainer: UIViewRepresentable {
             self.parent = parent
         }
 
+        func updateSelectionIndicator(for selectedId: UUID?) {
+            // Remove previous selection ring from all models
+            for (_, entity) in loadedEntities {
+                if let existing = entity.findEntity(named: "SelectionRingIndicator") {
+                    existing.removeFromParent()
+                }
+            }
+            
+            // Attach 3D selection ring underneath newly selected model
+            guard let selectedId = selectedId, let selectedEntity = loadedEntities[selectedId] else { return }
+            
+            let bounds = selectedEntity.visualBounds(relativeTo: selectedEntity)
+            let radius = max(0.18, max(bounds.extents.x, bounds.extents.z) * 0.6)
+            
+            let ringMesh = MeshResource.generatePlane(width: radius * 2, depth: radius * 2, cornerRadius: radius)
+            var material = UnlitMaterial()
+            material.color = .init(tint: UIColor.systemBlue.withAlphaComponent(0.6))
+            
+            let ringEntity = ModelEntity(mesh: ringMesh, materials: [material])
+            ringEntity.name = "SelectionRingIndicator"
+            ringEntity.position = [0, 0.003, 0] // Just above flat surface plane
+            
+            selectedEntity.addChild(ringEntity)
+        }
+
+        func onResetTriggerHandled() {
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.onResetHandled?()
+            }
+        }
+
         func loadPendingModel(_ modelItem: ARModelItem) {
             currentLoadingId = modelItem.id
-            parent.isLoading = true
             
-            loadCancellable?.cancel()
-            loadCancellable = Entity.loadAsync(contentsOf: modelItem.fileURL)
-                .receive(on: DispatchQueue.main)
-                .sink(receiveCompletion: { [weak self] completion in
-                    guard let self = self else { return }
-                    self.parent.isLoading = false
-                    if case let .failure(error) = completion {
-                        print("Failed to load 3D model \(modelItem.name): \(error.localizedDescription)")
-                        self.parent.onError?(error)
-                    }
-                }, receiveValue: { [weak self] loadedModel in
-                    guard let self = self else { return }
+            loadTask?.cancel()
+            loadTask = Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                do {
+                    // Modern iOS 18+ async Entity initialization
+                    let loadedModel = try await Entity(contentsOf: modelItem.fileURL)
+                    
+                    guard !Task.isCancelled else { return }
                     
                     // 1. Create a root pivot container
                     let container = Entity()
@@ -232,15 +256,23 @@ struct ARViewContainer: UIViewRepresentable {
                         filter: .default
                     )
                     
+                    guard !Task.isCancelled else { return }
                     self.pendingEntity = container
-                    self.parent.isLoading = false
-                })
+                    self.parent.onLoadingStateChanged?(false)
+                    
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    print("Failed to load 3D model \(modelItem.name): \(error.localizedDescription)")
+                    self.parent.onLoadingStateChanged?(false)
+                    self.parent.onError?(error)
+                }
+            }
         }
         
         func cancelPendingModel() {
             currentLoadingId = nil
-            loadCancellable?.cancel()
-            loadCancellable = nil
+            loadTask?.cancel()
+            loadTask = nil
             pendingEntity?.removeFromParent()
             pendingEntity = nil
         }
