@@ -13,22 +13,25 @@ struct TopHUDBarView: View {
     
     var body: some View {
         HStack {
-            // Scene Capacity Badge Platter
-            HStack(spacing: 8) {
-                Image(systemName: "cube.fill")
-                    .foregroundColor(.white)
-                    .font(.subheadline.weight(.semibold))
-                Text("\(viewModel.models.count) of \(ARConstants.maxSimultaneousModels) Models")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
+            // Scene Capacity Badge Platter (Only visible after 3D models are added)
+            if !viewModel.models.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "cube.fill")
+                        .foregroundColor(.white)
+                        .font(.subheadline.weight(.semibold))
+                    Text("\(viewModel.models.count) of \(ARConstants.maxSimultaneousModels) Models")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .liquidGlassCapsule(shadowRadius: 8, shadowY: 3)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .liquidGlassCapsule(shadowRadius: 8, shadowY: 3)
             
             Spacer()
             
-            // Clear All Action Button (Visible when models exist and not placing)
+            // Clear All Action Button (Visible when models exist and not in placement mode)
             if !viewModel.models.isEmpty && viewModel.pendingModel == nil {
                 Button(action: {
                     viewModel.showClearAllConfirmation = true
@@ -58,9 +61,11 @@ struct TopHUDBarView: View {
                 }
                 .buttonStyle(.plain)
                 .hoverEffect(.highlight)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .padding(.horizontal, 20)
         .frame(maxWidth: 540)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.models.isEmpty)
     }
 }

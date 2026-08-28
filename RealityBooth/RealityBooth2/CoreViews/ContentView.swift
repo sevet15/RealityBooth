@@ -18,10 +18,9 @@ struct ContentView: View {
             ARViewContainer(
                 models: viewModel.models,
                 pendingModel: viewModel.pendingModel,
-                selectedModelId: $viewModel.selectedModelId,
-                isLoading: $viewModel.isLoading,
-                resetTrigger: $viewModel.resetTrigger,
-                takeScreenshotTrigger: $viewModel.takeScreenshotTrigger,
+                selectedModelId: viewModel.selectedModelId,
+                resetTrigger: viewModel.resetTrigger,
+                takeScreenshotTrigger: viewModel.takeScreenshotTrigger,
                 onModelPlaced: { placedId in
                     viewModel.confirmPlacement(id: placedId)
                 },
@@ -32,7 +31,14 @@ struct ContentView: View {
                     viewModel.deselectModel()
                 },
                 onSnapshotCaptured: { image in
+                    viewModel.takeScreenshotTrigger = false
                     viewModel.handleSnapshotCaptured(image)
+                },
+                onResetHandled: {
+                    viewModel.resetTrigger = false
+                },
+                onLoadingStateChanged: { isLoading in
+                    viewModel.isLoading = isLoading
                 },
                 onError: { error in
                     viewModel.showError(error.localizedDescription)
