@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-/// Central ViewModel managing all AR state, multi-model lifecycle, and photo capture workflows
+/// Central ViewModel managing all AR state, multi-model lifecycle, and optimized photo capture workflows
 @MainActor
 final class ARViewModel: ObservableObject {
     // MARK: - Published State Properties
@@ -35,6 +35,9 @@ final class ARViewModel: ObservableObject {
     // Error Handling
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
+    
+    // Private concurrency guard
+    private var isCapturingSnapshot = false
     
     // MARK: - Computed Helpers
     var isMaxCapacityReached: Bool {
@@ -157,8 +160,12 @@ final class ARViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Screenshot Capture Workflow
+    // MARK: - Optimized Screenshot Capture Workflow
     func triggerScreenshot() {
+        // Prevent concurrent overload
+        guard !isCapturingSnapshot else { return }
+        isCapturingSnapshot = true
+        
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         
         loadingMessage = "Capturing Photo…"
@@ -179,6 +186,8 @@ final class ARViewModel: ObservableObject {
     func handleSnapshotCaptured(_ image: UIImage) {
         PhotoLibraryManager.shared.saveImage(image) { [weak self] result in
             guard let self = self else { return }
+            self.isCapturingSnapshot = false
+            
             withAnimation(.easeInOut(duration: 0.2)) {
                 self.isLoading = false
                 self.loadingMessage = "Loading 3D Model…"

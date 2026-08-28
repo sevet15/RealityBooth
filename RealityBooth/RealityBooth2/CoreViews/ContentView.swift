@@ -88,13 +88,13 @@ struct ContentView: View {
             if viewModel.isLoading {
                 LoadingOverlayView(message: viewModel.loadingMessage)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                    .zIndex(1)
+                    .zIndex(20)
             }
             
             // MARK: - Layer 3: Splash Screen
             if viewModel.showSplash {
                 SplashScreenView(showSplash: $viewModel.showSplash)
-                    .zIndex(10)
+                    .zIndex(25)
             }
             
             // MARK: - Layer 4: Shutter Flash Effect
@@ -103,13 +103,13 @@ struct ContentView: View {
                     .ignoresSafeArea()
                     .opacity(0.85)
                     .transition(.opacity)
-                    .zIndex(20)
+                    .zIndex(30)
             }
             
             // MARK: - Layer 5: Snapshot Saved Toast
             if viewModel.showScreenshotSavedToast {
                 ToastNotificationView()
-                    .zIndex(25)
+                    .zIndex(35)
             }
         }
         .sheet(isPresented: $viewModel.showModelPicker) {
@@ -123,8 +123,10 @@ struct ContentView: View {
                     viewModel.showCustomFilePicker = true
                 }
             )
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.fraction(0.62), .large])
             .presentationDragIndicator(.visible)
+            .presentationCornerRadius(30)
+            .presentationBackground(Color(red: 0.14, green: 0.14, blue: 0.16))
         }
         .fileImporter(
             isPresented: $viewModel.showCustomFilePicker,
