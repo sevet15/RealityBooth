@@ -6,44 +6,59 @@
 //
 
 import UIKit
+import Photos
 
-/// Service responsible for saving captured AR snapshot images to the user photo album
-final class PhotoLibraryManager: NSObject {
+/// High-performance asynchronous service responsible for saving captured AR snapshot images using modern Photos framework
+final class PhotoLibraryManager {
     static let shared = PhotoLibraryManager()
     
-    private var completionHandler: ((Result<Void, Error>) -> Void)?
+    private init() {}
     
     enum PhotoSaveError: LocalizedError {
-        case failedToSave(underlying: Error)
+        case notAuthorized
+        case unknownError
+        case underlying(Error)
         
         var errorDescription: String? {
             switch self {
-            case .failedToSave(let underlying):
-                return "Failed to save photo to library: \(underlying.localizedDescription)"
+            case .notAuthorized:
+                return "Photo library access was not granted. Please enable access in iOS Settings."
+            case .unknownError:
+                return "An unexpected error occurred while saving the snapshot."
+            case .underlying(let error):
+                return "Failed to save photo: \(error.localizedDescription)"
             }
         }
     }
     
-    func saveImage(_ image: UIImage, completion: @escaping (Result<Void, Error>) -> Void) {
-        self.completionHandler = completion
-        UIImageWriteToSavedPhotosAlbum(
-            image,
-            self,
-            #selector(image(_:didFinishSavingWithError:contextInfo:)),
-            nil
-        )
+    /// Pre-warm photo library authorization status on startup
+    func prewarm() {
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { _ in }
     }
     
-    @objc private func image(
-        _ image: UIImage,
-        didFinishSavingWithError error: Error?,
-        contextInfo: UnsafeRawPointer
-    ) {
-        if let error = error {
-            completionHandler?(.failure(PhotoSaveError.failedToSave(underlying: error)))
-        } else {
-            completionHandler?(.success(()))
+    /// Asynchronously saves UIImage directly into Photos library without blocking main thread
+    func saveImage(_ image: UIImage, completion: @escaping (Result<Void, Error>) -> Void) {
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized || status == .limited else {
+                DispatchQueue.main.async {
+                    completion(.failure(PhotoSaveError.notAuthorized))
+                }
+                return
+            }
+            
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }) { success, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        completion(.failure(PhotoSaveError.underlying(error)))
+                    } else if success {
+                        completion(.success(()))
+                    } else {
+                        completion(.failure(PhotoSaveError.unknownError))
+                    }
+                }
+            }
         }
-        completionHandler = nil
     }
 }
