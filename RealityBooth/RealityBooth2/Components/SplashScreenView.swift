@@ -26,7 +26,7 @@ struct SplashScreenView: View {
                     .font(.system(size: 38, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
                 
-                Text("Augmented Reality Studio")
+                Text("By Triative Studio")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
             }
