@@ -56,13 +56,13 @@ struct BuiltInModel: Identifiable, Hashable {
         BuiltInModel(
             name: "Model 2",
             filename: "Model2.usdz",
-            systemIcon: "cube.transparent",
+            systemIcon: "cube.fill",
             subtitle: "Sample 3D Asset • USDZ"
         ),
         BuiltInModel(
             name: "Model 3",
             filename: "Model3.usdz",
-            systemIcon: "sparkles",
+            systemIcon: "cube.fill",
             subtitle: "Sample 3D Asset • USDZ"
         )
     ]
