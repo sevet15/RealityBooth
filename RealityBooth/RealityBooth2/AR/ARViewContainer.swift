@@ -313,30 +313,58 @@ struct ARViewContainer: UIViewRepresentable {
             }
         }
 
-        // MARK: - Multi-Priority Surface Raycast with LiDAR & Plane Fallbacks
+        // MARK: - Multi-Surface (Horizontal & Vertical) Raycast with LiDAR & Plane Normalization
+        private func normalizeSurfaceTransform(_ transform: simd_float4x4) -> simd_float4x4 {
+            let position = simd_make_float3(transform.columns.3)
+            let normal = simd_normalize(simd_make_float3(transform.columns.1))
+            
+            // If surface is horizontal (floor / tabletop), level with gravity
+            if abs(normal.y) > 0.65 {
+                var forward = simd_make_float3(transform.columns.2)
+                forward.y = 0
+                if simd_length_squared(forward) < 0.0001 {
+                    forward = simd_float3(0, 0, 1)
+                } else {
+                    forward = simd_normalize(forward)
+                }
+                let up = simd_float3(0, normal.y >= 0 ? 1 : -1, 0)
+                let right = simd_normalize(simd_cross(up, forward))
+                
+                var result = matrix_identity_float4x4
+                result.columns.0 = simd_float4(right.x, right.y, right.z, 0)
+                result.columns.1 = simd_float4(up.x, up.y, up.z, 0)
+                result.columns.2 = simd_float4(forward.x, forward.y, forward.z, 0)
+                result.columns.3 = simd_float4(position.x, position.y, position.z, 1)
+                return result
+            } else {
+                // If surface is vertical (wall / vertical plane), preserve the wall orientation
+                return transform
+            }
+        }
+
         private func performSurfaceRaycast(at point: CGPoint, in arView: ARView) -> simd_float4x4? {
-            // 1. Priority 1: Exact detected plane geometry (LiDAR mesh / ARKit plane boundary)
+            // 1. Priority 1: Exact detected plane geometry (Horizontal & Vertical LiDAR mesh / ARKit plane)
             if let result = arView.raycast(from: point, allowing: .existingPlaneGeometry, alignment: .any).first {
-                return result.worldTransform
+                return normalizeSurfaceTransform(result.worldTransform)
             }
             
-            // 2. Priority 2: Infinite plane extension of detected planes
+            // 2. Priority 2: Infinite plane extension of detected horizontal/vertical planes
             if let result = arView.raycast(from: point, allowing: .existingPlaneInfinite, alignment: .any).first {
-                return result.worldTransform
+                return normalizeSurfaceTransform(result.worldTransform)
             }
             
-            // 3. Priority 3: Estimated surface (for rapid instant placement before full mesh analysis)
+            // 3. Priority 3: Estimated surface (Horizontal & Vertical)
             if let result = arView.raycast(from: point, allowing: .estimatedPlane, alignment: .any).first {
-                return result.worldTransform
+                return normalizeSurfaceTransform(result.worldTransform)
             }
             
-            // 4. Priority 4: Hit-test fallback across feature points and plane extents
+            // 4. Priority 4: Hit-test fallback across horizontal/vertical surfaces and feature points
             let hitResults = arView.hitTest(
                 point,
-                types: [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedHorizontalPlane, .featurePoint]
+                types: [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedHorizontalPlane, .estimatedVerticalPlane, .featurePoint]
             )
             if let hit = hitResults.first {
-                return hit.worldTransform
+                return normalizeSurfaceTransform(hit.worldTransform)
             }
             
             return nil

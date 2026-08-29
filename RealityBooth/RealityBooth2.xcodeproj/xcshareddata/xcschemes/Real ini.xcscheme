@@ -15,7 +15,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "DA109E1B3037EC7F000B6B8D"
+               BlueprintIdentifier = "DA109E283037EC7F000B6B8D"
                BuildableName = "Real ini.app"
                BlueprintName = "Real ini"
                ReferencedContainer = "container:RealityBooth2.xcodeproj">
@@ -44,7 +44,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "DA109E1B3037EC7F000B6B8D"
+            BlueprintIdentifier = "DA109E283037EC7F000B6B8D"
             BuildableName = "Real ini.app"
             BlueprintName = "Real ini"
             ReferencedContainer = "container:RealityBooth2.xcodeproj">
@@ -61,7 +61,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "DA109E1B3037EC7F000B6B8D"
+            BlueprintIdentifier = "DA109E283037EC7F000B6B8D"
             BuildableName = "Real ini.app"
             BlueprintName = "Real ini"
             ReferencedContainer = "container:RealityBooth2.xcodeproj">
