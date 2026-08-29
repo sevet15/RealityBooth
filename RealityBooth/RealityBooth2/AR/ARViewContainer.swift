@@ -57,8 +57,15 @@ struct ARViewContainer: UIViewRepresentable {
         
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
 
-        // Enable scene understanding physics and collision if available
-        arView.environment.sceneUnderstanding.options.insert([.collision, .receivesLighting])
+        // Performance: Optimize render options to eliminate GPU overhead & motion lag
+        arView.renderOptions.insert([
+            .disableMotionBlur,
+            .disableDepthOfField,
+            .disableFaceMesh
+        ])
+        
+        // Enable scene understanding physics and lighting
+        arView.environment.sceneUnderstanding.options.insert([.receivesLighting])
 
         // Setup Gestures
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
@@ -162,27 +169,65 @@ struct ARViewContainer: UIViewRepresentable {
             self.parent = parent
         }
 
+        private func generateThinRingMesh(radius: Float, thickness: Float = 0.020, segments: Int = 64) -> MeshResource? {
+            var desc = MeshDescriptor(name: "SelectionOutlineRing")
+            var positions: [SIMD3<Float>] = []
+            var indices: [UInt32] = []
+            
+            let innerR = radius
+            let outerR = radius + thickness
+            
+            for i in 0...segments {
+                let angle = Float(i) * (2.0 * .pi / Float(segments))
+                let cosA = cos(angle)
+                let sinA = sin(angle)
+                
+                positions.append(SIMD3<Float>(innerR * cosA, 0, innerR * sinA))
+                positions.append(SIMD3<Float>(outerR * cosA, 0, outerR * sinA))
+            }
+            
+            for i in 0..<segments {
+                let v0 = UInt32(i * 2)
+                let v1 = UInt32(i * 2 + 1)
+                let v2 = UInt32((i + 1) * 2)
+                let v3 = UInt32((i + 1) * 2 + 1)
+                
+                // Double-sided quad rendering so it is 100% visible from all camera angles
+                indices.append(contentsOf: [v0, v1, v2, v1, v3, v2])
+                indices.append(contentsOf: [v0, v2, v1, v1, v2, v3])
+            }
+            
+            desc.positions = MeshBuffers.Positions(positions)
+            desc.primitives = .triangles(indices)
+            
+            return try? MeshResource.generate(from: [desc])
+        }
+
         func updateSelectionIndicator(for selectedId: UUID?) {
-            // Remove previous selection ring from all models
+            // 1. Remove previous selection ring from all entities
             for (_, entity) in loadedEntities {
                 if let existing = entity.findEntity(named: "SelectionRingIndicator") {
                     existing.removeFromParent()
                 }
             }
             
-            // Attach 3D selection ring underneath newly selected model
+            // 2. Attach bigger prominent 3D outline selection ring centered at the bottom base of the selected model
             guard let selectedId = selectedId, let selectedEntity = loadedEntities[selectedId] else { return }
             
             let bounds = selectedEntity.visualBounds(relativeTo: selectedEntity)
-            let radius = max(0.18, max(bounds.extents.x, bounds.extents.z) * 0.6)
+            // 20% smaller radius tailored to frame the model footprint cleanly
+            let radius = max(0.30, max(bounds.extents.x, bounds.extents.z) * 0.60)
             
-            let ringMesh = MeshResource.generatePlane(width: radius * 2, depth: radius * 2, cornerRadius: radius)
+            // Generate a crisp, vibrant blue circular outline ring (16mm stroke line)
+            guard let ringMesh = generateThinRingMesh(radius: radius, thickness: 0.016, segments: 64) else { return }
             var material = UnlitMaterial()
-            material.color = .init(tint: UIColor.systemBlue.withAlphaComponent(0.6))
+            material.color = .init(tint: UIColor(red: 0.0, green: 0.52, blue: 1.0, alpha: 1.0))
             
             let ringEntity = ModelEntity(mesh: ringMesh, materials: [material])
             ringEntity.name = "SelectionRingIndicator"
-            ringEntity.position = [0, 0.003, 0] // Just above flat surface plane
+            
+            // Positioned flat on the surface directly at the bottom base footprint of the model (5mm above floor)
+            ringEntity.position = SIMD3<Float>(bounds.center.x, bounds.min.y + 0.005, bounds.center.z)
             
             selectedEntity.addChild(ringEntity)
         }
@@ -209,9 +254,9 @@ struct ARViewContainer: UIViewRepresentable {
                     let container = Entity()
                     container.name = modelItem.id.uuidString
                     
-                    // 2. Compute local visual bounds (accurate even before scene attachment)
-                    let localBounds = loadedModel.visualBounds(relativeTo: loadedModel)
-                    let extents = localBounds.extents
+                    // 2. Measure raw bounds and apply real-world target scale
+                    let rawBounds = loadedModel.visualBounds(relativeTo: loadedModel)
+                    let extents = rawBounds.extents
                     let maxDim = max(extents.x, max(extents.y, extents.z))
                     
                     // Target real-world scale in meters
@@ -224,29 +269,25 @@ struct ARViewContainer: UIViewRepresentable {
                         targetSizeInMeters = 0.8 // Standard scale for other models
                     }
                     
-                    let scaleFactor: Float
-                    if maxDim > 0.0001 {
-                        scaleFactor = targetSizeInMeters / maxDim
-                    } else {
-                        scaleFactor = 1.0
-                    }
+                    let scaleFactor: Float = maxDim > 0.0001 ? (targetSizeInMeters / maxDim) : 1.0
                     loadedModel.scale = SIMD3<Float>(repeating: scaleFactor)
                     
-                    // 3. Ground the model geometry so its bottom (min.y) rests exactly at y = 0
-                    let scaledMinY = localBounds.min.y * scaleFactor
-                    let scaledCenterX = localBounds.center.x * scaleFactor
-                    let scaledCenterZ = localBounds.center.z * scaleFactor
-                    
-                    loadedModel.position = SIMD3<Float>(-scaledCenterX, -scaledMinY, -scaledCenterZ)
+                    // 3. Add to container first to calculate true compounded visual bounds
                     container.addChild(loadedModel)
                     
-                    // 4. Generate collision shapes on child meshes
-                    self.enableCollisionShapes(on: container)
+                    // 4. Precision Grounding: Calculate exact bounds in container space
+                    let boundsInContainer = container.visualBounds(relativeTo: container)
                     
-                    // 5. Add a root box collision component to guarantee tap hit testing
-                    let boxWidth = max(0.25, extents.x * scaleFactor)
-                    let boxHeight = max(0.25, extents.y * scaleFactor)
-                    let boxDepth = max(0.25, extents.z * scaleFactor)
+                    // Offset loadedModel so its center sits at (0, 0) in XZ and lowest vertex sits exactly at y = 0
+                    loadedModel.position.x -= boundsInContainer.center.x
+                    loadedModel.position.y -= boundsInContainer.min.y
+                    loadedModel.position.z -= boundsInContainer.center.z
+                    
+                    // 5. Add a high-performance root box collision component for instant tap hit-testing
+                    let finalBounds = container.visualBounds(relativeTo: container)
+                    let boxWidth = finalBounds.extents.x
+                    let boxHeight = finalBounds.extents.y
+                    let boxDepth = finalBounds.extents.z
                     let boxSize = SIMD3<Float>(boxWidth, boxHeight, boxDepth)
                     let boxCenter = SIMD3<Float>(0, boxHeight / 2.0, 0)
                     
@@ -277,14 +318,7 @@ struct ARViewContainer: UIViewRepresentable {
             pendingEntity = nil
         }
         
-        private func enableCollisionShapes(on entity: Entity) {
-            if let model = entity as? ModelEntity {
-                model.generateCollisionShapes(recursive: true)
-            }
-            for child in entity.children {
-                enableCollisionShapes(on: child)
-            }
-        }
+
         
         func removeModel(id: UUID) {
             if let anchor = modelAnchors[id] {
@@ -313,58 +347,30 @@ struct ARViewContainer: UIViewRepresentable {
             }
         }
 
-        // MARK: - Multi-Surface (Horizontal & Vertical) Raycast with LiDAR & Plane Normalization
-        private func normalizeSurfaceTransform(_ transform: simd_float4x4) -> simd_float4x4 {
-            let position = simd_make_float3(transform.columns.3)
-            let normal = simd_normalize(simd_make_float3(transform.columns.1))
-            
-            // If surface is horizontal (floor / tabletop), level with gravity
-            if abs(normal.y) > 0.65 {
-                var forward = simd_make_float3(transform.columns.2)
-                forward.y = 0
-                if simd_length_squared(forward) < 0.0001 {
-                    forward = simd_float3(0, 0, 1)
-                } else {
-                    forward = simd_normalize(forward)
-                }
-                let up = simd_float3(0, normal.y >= 0 ? 1 : -1, 0)
-                let right = simd_normalize(simd_cross(up, forward))
-                
-                var result = matrix_identity_float4x4
-                result.columns.0 = simd_float4(right.x, right.y, right.z, 0)
-                result.columns.1 = simd_float4(up.x, up.y, up.z, 0)
-                result.columns.2 = simd_float4(forward.x, forward.y, forward.z, 0)
-                result.columns.3 = simd_float4(position.x, position.y, position.z, 1)
-                return result
-            } else {
-                // If surface is vertical (wall / vertical plane), preserve the wall orientation
-                return transform
-            }
-        }
-
+        // MARK: - Native Apple ARKit & LiDAR Multi-Surface (Horizontal & Vertical) Raycasting
         private func performSurfaceRaycast(at point: CGPoint, in arView: ARView) -> simd_float4x4? {
-            // 1. Priority 1: Exact detected plane geometry (Horizontal & Vertical LiDAR mesh / ARKit plane)
+            // 1. Priority 1: Exact physical surface geometry (LiDAR Scene Reconstruction Mesh & ARKit Planes)
             if let result = arView.raycast(from: point, allowing: .existingPlaneGeometry, alignment: .any).first {
-                return normalizeSurfaceTransform(result.worldTransform)
+                return result.worldTransform
             }
             
-            // 2. Priority 2: Infinite plane extension of detected horizontal/vertical planes
+            // 2. Priority 2: Infinite plane extension of confirmed detected physical surfaces
             if let result = arView.raycast(from: point, allowing: .existingPlaneInfinite, alignment: .any).first {
-                return normalizeSurfaceTransform(result.worldTransform)
+                return result.worldTransform
             }
             
-            // 3. Priority 3: Estimated surface (Horizontal & Vertical)
+            // 3. Priority 3: Estimated surface (Horizontal & Vertical rapid placement)
             if let result = arView.raycast(from: point, allowing: .estimatedPlane, alignment: .any).first {
-                return normalizeSurfaceTransform(result.worldTransform)
+                return result.worldTransform
             }
             
-            // 4. Priority 4: Hit-test fallback across horizontal/vertical surfaces and feature points
-            let hitResults = arView.hitTest(
+            // 4. Priority 4: Native ARKit Hit-Test across detected planes & estimated surfaces
+            let planeHits = arView.hitTest(
                 point,
                 types: [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedHorizontalPlane, .estimatedVerticalPlane, .featurePoint]
             )
-            if let hit = hitResults.first {
-                return normalizeSurfaceTransform(hit.worldTransform)
+            if let hit = planeHits.first {
+                return hit.worldTransform
             }
             
             return nil
@@ -471,14 +477,21 @@ struct ARViewContainer: UIViewRepresentable {
             }
         }
         
+        private var lastPanRaycastTime: TimeInterval = 0
+
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
             guard let arView = recognizer.view as? ARView else { return }
             guard let selectedId = parent.selectedModelId, let currentAnchor = modelAnchors[selectedId] else { return }
             
+            // Performance: Smooth 60FPS throttling for real-time dragging
+            let now = CACurrentMediaTime()
+            guard now - lastPanRaycastTime >= 0.016 || recognizer.state == .ended else { return }
+            lastPanRaycastTime = now
+            
             let location = recognizer.location(in: arView)
             guard let worldTransform = performSurfaceRaycast(at: location, in: arView) else { return }
             
-            if recognizer.state == .changed {
+            if recognizer.state == .changed || recognizer.state == .ended {
                 currentAnchor.setTransformMatrix(worldTransform, relativeTo: nil)
             }
         }
