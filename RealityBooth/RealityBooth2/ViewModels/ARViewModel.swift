@@ -66,8 +66,24 @@ final class ARViewModel: ObservableObject {
         
         let filenameComponents = sample.filename.split(separator: ".")
         guard let name = filenameComponents.first,
-              let ext = filenameComponents.last,
-              let url = Bundle.main.url(forResource: String(name), withExtension: String(ext)) else {
+              let ext = filenameComponents.last else {
+            showError("Could not locate sample 3D model: \(sample.filename)")
+            return
+        }
+        
+        // Robust multi-extension bundle lookup (.usdz, .usdc, .reality)
+        var modelURL = Bundle.main.url(forResource: String(name), withExtension: String(ext))
+        if modelURL == nil {
+            modelURL = Bundle.main.url(forResource: String(name), withExtension: "usdz")
+        }
+        if modelURL == nil {
+            modelURL = Bundle.main.url(forResource: String(name), withExtension: "usdc")
+        }
+        if modelURL == nil {
+            modelURL = Bundle.main.url(forResource: String(name), withExtension: "reality")
+        }
+        
+        guard let url = modelURL else {
             showError("Could not locate sample 3D model: \(sample.filename)")
             return
         }
