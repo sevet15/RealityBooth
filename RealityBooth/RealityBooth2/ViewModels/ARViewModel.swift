@@ -21,6 +21,12 @@ final class ARViewModel: ObservableObject {
     @Published var showCustomFilePicker: Bool = false
     @Published var showClearAllConfirmation: Bool = false
     
+    // Scale Percentage & Live Dimension Feedback (in cm)
+    @Published var scalePercentage: Int? = nil
+    @Published var scaleDimensionsCm: SIMD3<Int>? = nil
+    @Published var scaleBadgePosition: CGPoint? = nil
+    private var scaleDismissTimer: Task<Void, Never>?
+
     // Triggers for ARView Container
     @Published var resetTrigger: Bool = false
     @Published var takeScreenshotTrigger: Bool = false
@@ -150,8 +156,33 @@ final class ARViewModel: ObservableObject {
         }
     }
     
+    func updateScalePercentage(_ percentage: Int, dimensionsCm: SIMD3<Int>?, screenPoint: CGPoint?) {
+        scaleDismissTimer?.cancel()
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            self.scalePercentage = percentage
+            self.scaleDimensionsCm = dimensionsCm
+            if let point = screenPoint {
+                self.scaleBadgePosition = point
+            }
+        }
+    }
+    
+    func endScaleInteraction() {
+        scaleDismissTimer?.cancel()
+        scaleDismissTimer = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.35)) {
+                self.scalePercentage = nil
+                self.scaleDimensionsCm = nil
+            }
+        }
+    }
+
     func resetSelectedModel() {
         self.resetTrigger = true
+        updateScalePercentage(100, dimensionsCm: nil, screenPoint: nil)
+        endScaleInteraction()
     }
     
     func clearAllModels() {

@@ -9,19 +9,24 @@ import SwiftUI
 import RealityKit
 import ARKit
 
+/// SwiftUI wrapper for RealityKit's ARView managing multi-model lifecycle, LiDAR tracking, and gestures
 struct ARViewContainer: UIViewRepresentable {
-    var models: [ARModelItem]
-    var pendingModel: ARModelItem?
-    var selectedModelId: UUID?
-    var resetTrigger: Bool
-    var takeScreenshotTrigger: Bool
+    // MARK: - Properties
+    let models: [ARModelItem]
+    let pendingModel: ARModelItem?
+    let selectedModelId: UUID?
+    let resetTrigger: Bool
+    let takeScreenshotTrigger: Bool
     
-    var onModelPlaced: (UUID) -> Void
-    var onModelSelected: (UUID) -> Void
-    var onModelDeselected: () -> Void
+    // Callbacks
+    let onModelPlaced: (UUID) -> Void
+    let onModelSelected: (UUID) -> Void
+    let onModelDeselected: () -> Void
     var onSnapshotCaptured: ((UIImage) -> Void)? = nil
     var onResetHandled: (() -> Void)? = nil
     var onLoadingStateChanged: ((Bool) -> Void)? = nil
+    var onScaleChanged: ((Int, SIMD3<Int>, CGPoint?) -> Void)? = nil
+    var onScaleEnded: (() -> Void)? = nil
     var onError: ((Error) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
@@ -31,40 +36,44 @@ struct ARViewContainer: UIViewRepresentable {
     func makeUIView(context: Context) -> ARView {
         let arView = ARView(frame: .zero)
 
-        // MARK: - ARKit Session Configuration with Enhanced LiDAR & Surface Tracking
+        // MARK: - Thermal & Power Optimized ARKit Session Configuration
         let config = ARWorldTrackingConfiguration()
         
-        // Enable horizontal and vertical flat surface detection
+        // 1. Efficient 1080p Video Format to prevent camera ISP overheating
+        if let optimalFormat = ARWorldTrackingConfiguration.supportedVideoFormats.first(where: {
+            $0.imageResolution.height == 1080 && $0.framesPerSecond == 60
+        }) ?? ARWorldTrackingConfiguration.supportedVideoFormats.first(where: {
+            $0.imageResolution.height <= 1080
+        }) {
+            config.videoFormat = optimalFormat
+        }
+        
+        // 2. Enable horizontal and vertical flat surface detection
         config.planeDetection = [.horizontal, .vertical]
         config.environmentTexturing = .automatic
-        
-        // Auto-focus for sharp feature tracking
         config.isAutoFocusEnabled = true
         
-        // Enable LiDAR Scene Reconstruction Mesh when available
-        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.meshWithClassification) {
-            config.sceneReconstruction = .meshWithClassification
-        } else if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+        // 3. Thermal Optimization: Use lightweight LiDAR Mesh without heavy CoreML classification loops
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
             config.sceneReconstruction = .mesh
         }
         
-        // Enable LiDAR Depth Semantics when supported
+        // 4. Single stabilized depth semantic stream to reduce Neural Engine temperature
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.smoothedSceneDepth) {
             config.frameSemantics.insert(.smoothedSceneDepth)
-        } else if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
-            config.frameSemantics.insert(.sceneDepth)
         }
         
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
 
-        // Performance: Optimize render options to eliminate GPU overhead & motion lag
+        // 5. Thermal & GPU Power Optimization: Disable energy-draining post-processing
         arView.renderOptions.insert([
             .disableMotionBlur,
             .disableDepthOfField,
-            .disableFaceMesh
+            .disableFaceMesh,
+            .disablePersonOcclusion
         ])
         
-        // Enable scene understanding physics and lighting
+        // Lighting only (avoids continuous background physics solver loops)
         arView.environment.sceneUnderstanding.options.insert([.receivesLighting])
 
         // Setup Gestures
@@ -81,25 +90,7 @@ struct ARViewContainer: UIViewRepresentable {
         pan.maximumNumberOfTouches = 1
         arView.addGestureRecognizer(pan)
 
-        // Setup directional lighting
-        let directionalLight = DirectionalLight()
-        directionalLight.light.color = .white
-        directionalLight.light.intensity = ARConstants.directionalLightIntensity
-        directionalLight.light.isRealWorldProxy = false
-        directionalLight.look(at: ARConstants.lightTarget, from: ARConstants.lightPosition, relativeTo: nil)
-        
-        let lightAnchor = AnchorEntity(world: [0, 0, 0])
-        lightAnchor.addChild(directionalLight)
-        arView.scene.addAnchor(lightAnchor)
-
         context.coordinator.arView = arView
-        
-        // Pre-warm Photo Library permissions & Metal snapshot pipeline in the background
-        PhotoLibraryManager.shared.prewarm()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak arView] in
-            arView?.snapshot(saveToHDR: false) { _ in }
-        }
-        
         return arView
     }
 
@@ -127,41 +118,40 @@ struct ARViewContainer: UIViewRepresentable {
             context.coordinator.cancelPendingModel()
         }
         
-        // 3. Handle Reset Transform Trigger
+        // 3. Handle Reset Transform Trigger (100% Real Size Base: scale = 1.0)
         if resetTrigger {
             if let selectedId = selectedModelId, let entity = context.coordinator.loadedEntities[selectedId] {
                 entity.scale = SIMD3<Float>(1, 1, 1)
                 entity.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
+                context.coordinator.initialScale = SIMD3<Float>(1, 1, 1)
+                context.coordinator.initialOrientation = simd_quatf(angle: 0, axis: [0, 1, 0])
             }
             context.coordinator.onResetTriggerHandled()
         }
         
-        // 4. Handle Screenshot Capture Trigger
+        // 4. Handle Snapshot Capture Trigger
         if takeScreenshotTrigger {
             context.coordinator.captureSnapshot()
         }
     }
 
-    static func dismantleUIView(_ uiView: ARView, coordinator: Coordinator) {
-        coordinator.loadTask?.cancel()
-        uiView.session.pause()
-        uiView.scene.anchors.removeAll()
-    }
-
+    // MARK: - Coordinator
     class Coordinator: NSObject {
         var parent: ARViewContainer
         weak var arView: ARView?
         
-        var loadTask: Task<Void, Never>?
+        // Multi-Model storage: Maps Model ID to AnchorEntity and loaded root Entity
+        var modelAnchors: [UUID: AnchorEntity] = [:]
+        var loadedEntities: [UUID: Entity] = [:]
+        
+        // Loading state
         var currentLoadingId: UUID?
         var pendingEntity: Entity?
+        private var loadTask: Task<Void, Never>?
         private var isCapturingSnapshot = false
+        private var lastPanRaycastTime: TimeInterval = 0
         
-        // Store all placed entities and anchors by model ID
-        var loadedEntities: [UUID: Entity] = [:]
-        var modelAnchors: [UUID: AnchorEntity] = [:]
-        
-        // Transform tracking for active gestures
+        // Gesture transforms tracking
         var initialScale: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
         var initialOrientation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
 
@@ -169,66 +159,17 @@ struct ARViewContainer: UIViewRepresentable {
             self.parent = parent
         }
 
-        private func generateThinRingMesh(radius: Float, thickness: Float = 0.020, segments: Int = 64) -> MeshResource? {
-            var desc = MeshDescriptor(name: "SelectionOutlineRing")
-            var positions: [SIMD3<Float>] = []
-            var indices: [UInt32] = []
-            
-            let innerR = radius
-            let outerR = radius + thickness
-            
-            for i in 0...segments {
-                let angle = Float(i) * (2.0 * .pi / Float(segments))
-                let cosA = cos(angle)
-                let sinA = sin(angle)
-                
-                positions.append(SIMD3<Float>(innerR * cosA, 0, innerR * sinA))
-                positions.append(SIMD3<Float>(outerR * cosA, 0, outerR * sinA))
-            }
-            
-            for i in 0..<segments {
-                let v0 = UInt32(i * 2)
-                let v1 = UInt32(i * 2 + 1)
-                let v2 = UInt32((i + 1) * 2)
-                let v3 = UInt32((i + 1) * 2 + 1)
-                
-                // Double-sided quad rendering so it is 100% visible from all camera angles
-                indices.append(contentsOf: [v0, v1, v2, v1, v3, v2])
-                indices.append(contentsOf: [v0, v2, v1, v1, v2, v3])
-            }
-            
-            desc.positions = MeshBuffers.Positions(positions)
-            desc.primitives = .triangles(indices)
-            
-            return try? MeshResource.generate(from: [desc])
-        }
-
         func updateSelectionIndicator(for selectedId: UUID?) {
             // 1. Remove previous selection ring from all entities
             for (_, entity) in loadedEntities {
-                if let existing = entity.findEntity(named: "SelectionRingIndicator") {
+                if let existing = entity.findEntity(named: ARSelectionIndicator.indicatorName) {
                     existing.removeFromParent()
                 }
             }
             
-            // 2. Attach bigger prominent 3D outline selection ring centered at the bottom base of the selected model
+            // 2. Attach 3D outline selection ring centered at the bottom base of the selected model
             guard let selectedId = selectedId, let selectedEntity = loadedEntities[selectedId] else { return }
-            
-            let bounds = selectedEntity.visualBounds(relativeTo: selectedEntity)
-            // 20% smaller radius tailored to frame the model footprint cleanly
-            let radius = max(0.30, max(bounds.extents.x, bounds.extents.z) * 0.60)
-            
-            // Generate a crisp, vibrant blue circular outline ring (16mm stroke line)
-            guard let ringMesh = generateThinRingMesh(radius: radius, thickness: 0.016, segments: 64) else { return }
-            var material = UnlitMaterial()
-            material.color = .init(tint: UIColor(red: 0.0, green: 0.52, blue: 1.0, alpha: 1.0))
-            
-            let ringEntity = ModelEntity(mesh: ringMesh, materials: [material])
-            ringEntity.name = "SelectionRingIndicator"
-            
-            // Positioned flat on the surface directly at the bottom base footprint of the model (5mm above floor)
-            ringEntity.position = SIMD3<Float>(bounds.center.x, bounds.min.y + 0.005, bounds.center.z)
-            
+            guard let ringEntity = ARSelectionIndicator.createIndicatorEntity(for: selectedEntity) else { return }
             selectedEntity.addChild(ringEntity)
         }
 
@@ -239,9 +180,10 @@ struct ARViewContainer: UIViewRepresentable {
         }
 
         func loadPendingModel(_ modelItem: ARModelItem) {
-            currentLoadingId = modelItem.id
-            
             loadTask?.cancel()
+            currentLoadingId = modelItem.id
+            parent.onLoadingStateChanged?(true)
+            
             loadTask = Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 do {
@@ -318,8 +260,6 @@ struct ARViewContainer: UIViewRepresentable {
             pendingEntity = nil
         }
         
-
-        
         func removeModel(id: UUID) {
             if let anchor = modelAnchors[id] {
                 anchor.children.removeAll()
@@ -347,35 +287,6 @@ struct ARViewContainer: UIViewRepresentable {
             }
         }
 
-        // MARK: - Native Apple ARKit & LiDAR Multi-Surface (Horizontal & Vertical) Raycasting
-        private func performSurfaceRaycast(at point: CGPoint, in arView: ARView) -> simd_float4x4? {
-            // 1. Priority 1: Exact physical surface geometry (LiDAR Scene Reconstruction Mesh & ARKit Planes)
-            if let result = arView.raycast(from: point, allowing: .existingPlaneGeometry, alignment: .any).first {
-                return result.worldTransform
-            }
-            
-            // 2. Priority 2: Infinite plane extension of confirmed detected physical surfaces
-            if let result = arView.raycast(from: point, allowing: .existingPlaneInfinite, alignment: .any).first {
-                return result.worldTransform
-            }
-            
-            // 3. Priority 3: Estimated surface (Horizontal & Vertical rapid placement)
-            if let result = arView.raycast(from: point, allowing: .estimatedPlane, alignment: .any).first {
-                return result.worldTransform
-            }
-            
-            // 4. Priority 4: Native ARKit Hit-Test across detected planes & estimated surfaces
-            let planeHits = arView.hitTest(
-                point,
-                types: [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedHorizontalPlane, .estimatedVerticalPlane, .featurePoint]
-            )
-            if let hit = planeHits.first {
-                return hit.worldTransform
-            }
-            
-            return nil
-        }
-
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
             guard let arView = recognizer.view as? ARView else { return }
             let tapLocation = recognizer.location(in: arView)
@@ -389,7 +300,7 @@ struct ARViewContainer: UIViewRepresentable {
             }
             
             // 2. Perform multi-priority surface raycast
-            guard let worldTransform = performSurfaceRaycast(at: tapLocation, in: arView) else {
+            guard let worldTransform = ARSurfaceManager.performSurfaceRaycast(at: tapLocation, in: arView) else {
                 return
             }
 
@@ -439,11 +350,22 @@ struct ARViewContainer: UIViewRepresentable {
         }
 
         @objc func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
+            guard let arView = recognizer.view as? ARView else { return }
             guard let selectedId = parent.selectedModelId, let entity = loadedEntities[selectedId] else { return }
             
+            let bounds = entity.visualBounds(relativeTo: entity)
+
             switch recognizer.state {
             case .began:
                 initialScale = entity.scale
+                let percentage = Int(round(entity.scale.x * 100))
+                let dims = SIMD3<Int>(
+                    max(1, Int(round(bounds.extents.x * entity.scale.x * 100.0))),
+                    max(1, Int(round(bounds.extents.y * entity.scale.y * 100.0))),
+                    max(1, Int(round(bounds.extents.z * entity.scale.z * 100.0)))
+                )
+                let screenPoint = arView.project(entity.position(relativeTo: nil))
+                parent.onScaleChanged?(percentage, dims, screenPoint)
             case .changed:
                 let scale = Float(recognizer.scale)
                 let newScale = initialScale * scale
@@ -453,8 +375,16 @@ struct ARViewContainer: UIViewRepresentable {
                     z: max(0.05, min(5.0, newScale.z))
                 )
                 entity.scale = clampedScale
-            case .cancelled:
-                entity.scale = initialScale
+                let percentage = Int(round(clampedScale.x * 100))
+                let dims = SIMD3<Int>(
+                    max(1, Int(round(bounds.extents.x * clampedScale.x * 100.0))),
+                    max(1, Int(round(bounds.extents.y * clampedScale.y * 100.0))),
+                    max(1, Int(round(bounds.extents.z * clampedScale.z * 100.0)))
+                )
+                let screenPoint = arView.project(entity.position(relativeTo: nil))
+                parent.onScaleChanged?(percentage, dims, screenPoint)
+            case .ended, .cancelled:
+                parent.onScaleEnded?()
             default:
                 break
             }
@@ -477,8 +407,6 @@ struct ARViewContainer: UIViewRepresentable {
             }
         }
         
-        private var lastPanRaycastTime: TimeInterval = 0
-
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
             guard let arView = recognizer.view as? ARView else { return }
             guard let selectedId = parent.selectedModelId, let currentAnchor = modelAnchors[selectedId] else { return }
@@ -489,7 +417,7 @@ struct ARViewContainer: UIViewRepresentable {
             lastPanRaycastTime = now
             
             let location = recognizer.location(in: arView)
-            guard let worldTransform = performSurfaceRaycast(at: location, in: arView) else { return }
+            guard let worldTransform = ARSurfaceManager.performSurfaceRaycast(at: location, in: arView) else { return }
             
             if recognizer.state == .changed || recognizer.state == .ended {
                 currentAnchor.setTransformMatrix(worldTransform, relativeTo: nil)
