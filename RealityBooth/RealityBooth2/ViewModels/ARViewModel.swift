@@ -180,9 +180,23 @@ final class ARViewModel: ObservableObject {
     }
 
     func resetSelectedModel() {
+        guard selectedModelId != nil, !resetTrigger else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        
+        withAnimation(.easeInOut(duration: 0.1)) {
+            self.isLoading = true
+            self.loadingMessage = "Resetting Model…"
+        }
+        
         self.resetTrigger = true
-        updateScalePercentage(100, dimensionsCm: nil, screenPoint: nil)
-        endScaleInteraction()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self = self else { return }
+            withAnimation(.easeOut(duration: 0.15)) {
+                self.isLoading = false
+                self.loadingMessage = "Loading 3D Model…"
+            }
+        }
     }
     
     func clearAllModels() {

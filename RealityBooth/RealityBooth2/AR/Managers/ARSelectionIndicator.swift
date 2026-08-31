@@ -48,9 +48,15 @@ enum ARSelectionIndicator {
     }
     
     /// Creates a ModelEntity configured as a crisp blue circular outline halo
-    static func createIndicatorEntity(for entity: Entity) -> ModelEntity? {
-        let bounds = entity.visualBounds(relativeTo: entity)
-        let radius = max(0.30, max(bounds.extents.x, bounds.extents.z) * 0.60)
+    static func createIndicatorEntity(for entity: Entity, baseExtents: SIMD3<Float>? = nil) -> ModelEntity? {
+        let extents: SIMD3<Float>
+        if let baseExtents = baseExtents {
+            extents = baseExtents
+        } else {
+            let bounds = entity.visualBounds(relativeTo: entity)
+            extents = bounds.extents
+        }
+        let radius = max(0.20, max(extents.x, extents.z) * 0.55)
         
         guard let ringMesh = generateRingMesh(radius: radius, thickness: 0.016, segments: 64) else { return nil }
         var material = UnlitMaterial()
@@ -58,7 +64,7 @@ enum ARSelectionIndicator {
         
         let ringEntity = ModelEntity(mesh: ringMesh, materials: [material])
         ringEntity.name = indicatorName
-        ringEntity.position = SIMD3<Float>(bounds.center.x, bounds.min.y + 0.005, bounds.center.z)
+        ringEntity.position = SIMD3<Float>(0, 0.005, 0)
         return ringEntity
     }
 }

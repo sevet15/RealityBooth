@@ -76,6 +76,32 @@ struct ARViewContainer: UIViewRepresentable {
         // Lighting only (avoids continuous background physics solver loops)
         arView.environment.sceneUnderstanding.options.insert([.receivesLighting])
 
+        // 6. Soft White Studio Lighting Rig (Key, Fill, and Overhead Directional Lights)
+        let lightingAnchor = AnchorEntity(world: .zero)
+        
+        let keyLight = DirectionalLight()
+        keyLight.light.color = .white
+        keyLight.light.intensity = ARConstants.keyLightIntensity
+        keyLight.light.isRealWorldProxy = true
+        keyLight.look(at: [0, 0, 0], from: ARConstants.keyLightPosition, relativeTo: nil)
+        lightingAnchor.addChild(keyLight)
+        
+        let fillLight = DirectionalLight()
+        fillLight.light.color = UIColor(white: 0.98, alpha: 1.0)
+        fillLight.light.intensity = ARConstants.fillLightIntensity
+        fillLight.light.isRealWorldProxy = true
+        fillLight.look(at: [0, 0, 0], from: ARConstants.fillLightPosition, relativeTo: nil)
+        lightingAnchor.addChild(fillLight)
+        
+        let topLight = DirectionalLight()
+        topLight.light.color = .white
+        topLight.light.intensity = ARConstants.topLightIntensity
+        topLight.light.isRealWorldProxy = true
+        topLight.look(at: [0, 0, 0], from: ARConstants.topLightPosition, relativeTo: nil)
+        lightingAnchor.addChild(topLight)
+        
+        arView.scene.addAnchor(lightingAnchor)
+
         // Setup Gestures
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         arView.addGestureRecognizer(tap)
@@ -97,7 +123,7 @@ struct ARViewContainer: UIViewRepresentable {
     func updateUIView(_ uiView: ARView, context: Context) {
         context.coordinator.parent = self
         
-        // 0. Update 3D Selection Highlight in AR Space
+        // 0. Optimized 3D Selection Highlight (Only updates when selection ID changes)
         context.coordinator.updateSelectionIndicator(for: selectedModelId)
         
         // 1. Sync removed models: remove anchors and entities for any models no longer in `models`
@@ -118,14 +144,9 @@ struct ARViewContainer: UIViewRepresentable {
             context.coordinator.cancelPendingModel()
         }
         
-        // 3. Handle Reset Transform Trigger (100% Real Size Base: scale = 1.0)
+        // 3. Handle Reset Transform Trigger (Non-blocking instantaneous transform reset)
         if resetTrigger {
-            if let selectedId = selectedModelId, let entity = context.coordinator.loadedEntities[selectedId] {
-                entity.scale = SIMD3<Float>(1, 1, 1)
-                entity.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
-                context.coordinator.initialScale = SIMD3<Float>(1, 1, 1)
-                context.coordinator.initialOrientation = simd_quatf(angle: 0, axis: [0, 1, 0])
-            }
+            context.coordinator.resetModelTransform(for: selectedModelId)
             context.coordinator.onResetTriggerHandled()
         }
         
@@ -143,6 +164,10 @@ struct ARViewContainer: UIViewRepresentable {
         // Multi-Model storage: Maps Model ID to AnchorEntity and loaded root Entity
         var modelAnchors: [UUID: AnchorEntity] = [:]
         var loadedEntities: [UUID: Entity] = [:]
+        var baseDimensions: [UUID: SIMD3<Float>] = [:]
+        
+        // Cached indicator selection state to prevent heavy redundant mesh allocations
+        var currentSelectedIndicatorId: UUID?
         
         // Loading state
         var currentLoadingId: UUID?
@@ -152,14 +177,23 @@ struct ARViewContainer: UIViewRepresentable {
         private var lastPanRaycastTime: TimeInterval = 0
         
         // Gesture transforms tracking
-        var initialScale: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
-        var initialOrientation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
+        var initialScale: SIMD3<Float> = ARConstants.defaultScale
+        var initialOrientation: simd_quatf = ARConstants.defaultOrientation
 
         init(parent: ARViewContainer) {
             self.parent = parent
         }
 
         func updateSelectionIndicator(for selectedId: UUID?) {
+            // Check if selection indicator is already current
+            if selectedId == currentSelectedIndicatorId {
+                if let id = selectedId, let entity = loadedEntities[id], entity.findEntity(named: ARSelectionIndicator.indicatorName) != nil {
+                    return
+                }
+            }
+            
+            currentSelectedIndicatorId = selectedId
+            
             // 1. Remove previous selection ring from all entities
             for (_, entity) in loadedEntities {
                 if let existing = entity.findEntity(named: ARSelectionIndicator.indicatorName) {
@@ -169,8 +203,42 @@ struct ARViewContainer: UIViewRepresentable {
             
             // 2. Attach 3D outline selection ring centered at the bottom base of the selected model
             guard let selectedId = selectedId, let selectedEntity = loadedEntities[selectedId] else { return }
-            guard let ringEntity = ARSelectionIndicator.createIndicatorEntity(for: selectedEntity) else { return }
+            let baseExtents = baseDimensions[selectedId]
+            guard let ringEntity = ARSelectionIndicator.createIndicatorEntity(for: selectedEntity, baseExtents: baseExtents) else { return }
             selectedEntity.addChild(ringEntity)
+        }
+
+        func resetModelTransform(for selectedId: UUID?) {
+            guard let selectedId = selectedId, let entity = loadedEntities[selectedId] else { return }
+            
+            // 1. Direct instantaneous transform reset on RealityKit entity
+            entity.scale = ARConstants.defaultScale
+            entity.orientation = ARConstants.defaultOrientation
+            initialScale = ARConstants.defaultScale
+            initialOrientation = ARConstants.defaultOrientation
+            
+            // 2. Read base dimensions
+            if let baseExtents = baseDimensions[selectedId] {
+                let dims = SIMD3<Int>(
+                    max(1, Int(round(baseExtents.x * 100.0))),
+                    max(1, Int(round(baseExtents.y * 100.0))),
+                    max(1, Int(round(baseExtents.z * 100.0)))
+                )
+                let screenPoint: CGPoint?
+                if let arView = arView,
+                   let rawPoint = arView.project(entity.position(relativeTo: nil)),
+                   rawPoint.x.isFinite, rawPoint.y.isFinite {
+                    screenPoint = rawPoint
+                } else {
+                    screenPoint = nil
+                }
+                
+                // 3. Dispatch feedback asynchronously on main queue so updateUIView completes cleanly
+                DispatchQueue.main.async { [weak self] in
+                    self?.parent.onScaleChanged?(100, dims, screenPoint)
+                    self?.parent.onScaleEnded?()
+                }
+            }
         }
 
         func onResetTriggerHandled() {
@@ -207,40 +275,25 @@ struct ARViewContainer: UIViewRepresentable {
                     let container = Entity()
                     container.name = modelItem.id.uuidString
                     
-                    // 2. Measure raw bounds and apply real-world target scale
-                    let rawBounds = loadedModel.visualBounds(relativeTo: loadedModel)
-                    let extents = rawBounds.extents
-                    let maxDim = max(extents.x, max(extents.y, extents.z))
-                    
-                    // Target real-world scale in meters
-                    let targetSizeInMeters: Float
-                    if modelItem.name.contains("2") {
-                        targetSizeInMeters = 1.0 // Scale Model 2 to exactly 1.0 meter in real world
-                    } else if modelItem.name.contains("3") {
-                        targetSizeInMeters = 1.0 // Scale Model 3 to 1.0 meter in real world
-                    } else {
-                        targetSizeInMeters = 0.8 // Standard scale for other models
-                    }
-                    
-                    let scaleFactor: Float = maxDim > 0.0001 ? (targetSizeInMeters / maxDim) : 1.0
-                    loadedModel.scale = SIMD3<Float>(repeating: scaleFactor)
-                    
-                    // 3. Add to container first to calculate true compounded visual bounds
+                    // 2. Add loaded model directly to container first to calculate true compounded orientation & bounds in parent space
                     container.addChild(loadedModel)
                     
-                    // 4. Precision Grounding: Calculate exact bounds in container space
+                    // 3. Measure bounds in container coordinate space (where parent orientation is standard Y-up)
                     let boundsInContainer = container.visualBounds(relativeTo: container)
+                    let extents = boundsInContainer.extents
                     
-                    // Offset loadedModel so its center sits at (0, 0) in XZ and lowest vertex sits exactly at y = 0
+                    // Store 1:1 base physical extents (in meters)
+                    self.baseDimensions[modelItem.id] = extents
+                    
+                    // 4. Precision Grounding: Offset model so its bottom vertex is at y = 0 and horizontally centered on (x=0, z=0)
                     loadedModel.position.x -= boundsInContainer.center.x
                     loadedModel.position.y -= boundsInContainer.min.y
                     loadedModel.position.z -= boundsInContainer.center.z
                     
-                    // 5. Add a high-performance root box collision component for instant tap hit-testing
-                    let finalBounds = container.visualBounds(relativeTo: container)
-                    let boxWidth = finalBounds.extents.x
-                    let boxHeight = finalBounds.extents.y
-                    let boxDepth = finalBounds.extents.z
+                    // 5. Generate root box collision component matching exact 1:1 model bounds for instant hit testing
+                    let boxWidth = max(0.05, extents.x)
+                    let boxHeight = max(0.05, extents.y)
+                    let boxDepth = max(0.05, extents.z)
                     let boxSize = SIMD3<Float>(boxWidth, boxHeight, boxDepth)
                     let boxCenter = SIMD3<Float>(0, boxHeight / 2.0, 0)
                     
@@ -249,6 +302,15 @@ struct ARViewContainer: UIViewRepresentable {
                         mode: .trigger,
                         filter: .default
                     )
+                    
+                    // 6. Add local soft white overhead point light for vibrant, bright model illumination
+                    let modelLight = PointLight()
+                    modelLight.name = "SoftWhiteModelLight"
+                    modelLight.light.color = .white
+                    modelLight.light.intensity = ARConstants.modelPointLightIntensity
+                    modelLight.light.attenuationRadius = max(6.0, max(extents.x, max(extents.y, extents.z)) * 3.5)
+                    modelLight.position = SIMD3<Float>(0, extents.y + 0.6, 0.2)
+                    container.addChild(modelLight)
                     
                     guard !Task.isCancelled else { return }
                     self.pendingEntity = container
@@ -272,6 +334,10 @@ struct ARViewContainer: UIViewRepresentable {
         }
         
         func removeModel(id: UUID) {
+            if currentSelectedIndicatorId == id {
+                currentSelectedIndicatorId = nil
+            }
+            baseDimensions.removeValue(forKey: id)
             if let anchor = modelAnchors[id] {
                 anchor.children.removeAll()
                 arView?.scene.removeAnchor(anchor)
@@ -364,38 +430,55 @@ struct ARViewContainer: UIViewRepresentable {
             guard let arView = recognizer.view as? ARView else { return }
             guard let selectedId = parent.selectedModelId, let entity = loadedEntities[selectedId] else { return }
             
-            let bounds = entity.visualBounds(relativeTo: entity)
+            let baseExtents = baseDimensions[selectedId] ?? {
+                let bounds = entity.visualBounds(relativeTo: entity)
+                return bounds.extents
+            }()
 
             switch recognizer.state {
             case .began:
                 initialScale = entity.scale
-                let percentage = Int(round(entity.scale.x * 100))
+                let currentScale = entity.scale.x
+                let percentage = Int(round(currentScale * 100.0))
                 let dims = SIMD3<Int>(
-                    max(1, Int(round(bounds.extents.x * entity.scale.x * 100.0))),
-                    max(1, Int(round(bounds.extents.y * entity.scale.y * 100.0))),
-                    max(1, Int(round(bounds.extents.z * entity.scale.z * 100.0)))
+                    max(1, Int(round(baseExtents.x * currentScale * 100.0))),
+                    max(1, Int(round(baseExtents.y * currentScale * 100.0))),
+                    max(1, Int(round(baseExtents.z * currentScale * 100.0)))
                 )
-                let screenPoint = arView.project(entity.position(relativeTo: nil))
+                let screenPoint: CGPoint?
+                if let rawPoint = arView.project(entity.position(relativeTo: nil)),
+                   rawPoint.x.isFinite, rawPoint.y.isFinite {
+                    screenPoint = rawPoint
+                } else {
+                    screenPoint = nil
+                }
                 parent.onScaleChanged?(percentage, dims, screenPoint)
+                
             case .changed:
-                let scale = Float(recognizer.scale)
-                let newScale = initialScale * scale
-                let clampedScale = SIMD3<Float>(
-                    x: max(0.05, min(5.0, newScale.x)),
-                    y: max(0.05, min(5.0, newScale.y)),
-                    z: max(0.05, min(5.0, newScale.z))
-                )
-                entity.scale = clampedScale
-                let percentage = Int(round(clampedScale.x * 100))
+                let scaleMultiplier = Float(recognizer.scale)
+                let newScaleVal = initialScale.x * scaleMultiplier
+                let clampedScale = max(ARConstants.minScale, min(ARConstants.maxScale, newScaleVal))
+                
+                entity.scale = SIMD3<Float>(repeating: clampedScale)
+                
+                let percentage = Int(round(clampedScale * 100.0))
                 let dims = SIMD3<Int>(
-                    max(1, Int(round(bounds.extents.x * clampedScale.x * 100.0))),
-                    max(1, Int(round(bounds.extents.y * clampedScale.y * 100.0))),
-                    max(1, Int(round(bounds.extents.z * clampedScale.z * 100.0)))
+                    max(1, Int(round(baseExtents.x * clampedScale * 100.0))),
+                    max(1, Int(round(baseExtents.y * clampedScale * 100.0))),
+                    max(1, Int(round(baseExtents.z * clampedScale * 100.0)))
                 )
-                let screenPoint = arView.project(entity.position(relativeTo: nil))
+                let screenPoint: CGPoint?
+                if let rawPoint = arView.project(entity.position(relativeTo: nil)),
+                   rawPoint.x.isFinite, rawPoint.y.isFinite {
+                    screenPoint = rawPoint
+                } else {
+                    screenPoint = nil
+                }
                 parent.onScaleChanged?(percentage, dims, screenPoint)
+                
             case .ended, .cancelled:
                 parent.onScaleEnded?()
+                
             default:
                 break
             }
