@@ -138,7 +138,7 @@ struct ModelPickerSheet: View {
                         .font(.body.weight(.bold))
                         .foregroundColor(.white)
                     
-                    Text("Supports standard .usdz and .reality AR files")
+                    Text("Supports .usdz, .usdc, and .reality 3D files")
                         .font(.caption)
                         .foregroundColor(Color(white: 0.65))
                         .lineLimit(1)
