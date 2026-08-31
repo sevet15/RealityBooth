@@ -8,7 +8,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Root AR View composing the scene, HUD layers, controls, and dialogs using MVVM architecture
+/// Root AR View composing the scene, HUD layers, controls, and dialogs using clean MVVM architecture
 struct ContentView: View {
     @StateObject private var viewModel = ARViewModel()
 
@@ -39,6 +39,12 @@ struct ContentView: View {
                 },
                 onLoadingStateChanged: { isLoading in
                     viewModel.isLoading = isLoading
+                },
+                onScaleChanged: { percentage, dims, screenPoint in
+                    viewModel.updateScalePercentage(percentage, dimensionsCm: dims, screenPoint: screenPoint)
+                },
+                onScaleEnded: {
+                    viewModel.endScaleInteraction()
                 },
                 onError: { error in
                     viewModel.showError(error.localizedDescription)
@@ -88,6 +94,15 @@ struct ContentView: View {
                 .padding(.bottom, 12)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.models.isEmpty)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.pendingModel)
+            }
+            
+            // MARK: - Layer 1.5: Scale Percentage & Live Dimension Feedback Badge
+            if let percentage = viewModel.scalePercentage {
+                ScaleFeedbackBadgeView(
+                    percentage: percentage,
+                    dimensionsCm: viewModel.scaleDimensionsCm,
+                    position: viewModel.scaleBadgePosition
+                )
             }
             
             // MARK: - Layer 2: Loading Overlay

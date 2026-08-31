@@ -14,7 +14,7 @@ enum ARConstants {
     static let maxSimultaneousModels: Int = 4
     
     // MARK: - Scale & Transform
-    static let defaultScale: SIMD3<Float> = SIMD3<Float>(0.1, 0.1, 0.1)
+    static let defaultScale: SIMD3<Float> = SIMD3<Float>(1.0, 1.0, 1.0)
     static let minScale: Float = 0.0001
     static let maxScale: Float = 3.0
     static let defaultOrientation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
