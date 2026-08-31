@@ -187,8 +187,19 @@ struct ARViewContainer: UIViewRepresentable {
             loadTask = Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 do {
-                    // Modern iOS 18+ async Entity initialization
-                    let loadedModel = try await Entity(contentsOf: modelItem.fileURL)
+                    // Modern iOS 18+ async Entity initialization with USDC dependency resolution fallback
+                    var loadedModel: Entity
+                    do {
+                        loadedModel = try await Entity(contentsOf: modelItem.fileURL)
+                    } catch {
+                        if modelItem.fileURL.pathExtension.lowercased() == "usdc" || error.localizedDescription.lowercased().contains("dependenc") {
+                            let usdzURL = modelItem.fileURL.deletingPathExtension().appendingPathExtension("usdz")
+                            let convertedURL = try ModelFileManager.convertUSDCToUSDZ(sourceURL: modelItem.fileURL, outputURL: usdzURL)
+                            loadedModel = try await Entity(contentsOf: convertedURL)
+                        } else {
+                            throw error
+                        }
+                    }
                     
                     guard !Task.isCancelled else { return }
                     

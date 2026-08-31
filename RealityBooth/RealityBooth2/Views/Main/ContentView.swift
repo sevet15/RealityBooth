@@ -151,7 +151,7 @@ struct ContentView: View {
         }
         .fileImporter(
             isPresented: $viewModel.showCustomFilePicker,
-            allowedContentTypes: [.usdz, .reality]
+            allowedContentTypes: [.usdz, .usdc, .reality]
         ) { result in
             viewModel.startPlacingCustom(result: result)
         }
