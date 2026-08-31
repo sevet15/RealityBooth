@@ -107,13 +107,16 @@ struct ARViewContainer: UIViewRepresentable {
         arView.addGestureRecognizer(tap)
         
         let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        pinch.delegate = context.coordinator
         arView.addGestureRecognizer(pinch)
         
         let rotation = UIRotationGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleRotation(_:)))
+        rotation.delegate = context.coordinator
         arView.addGestureRecognizer(rotation)
         
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         pan.maximumNumberOfTouches = 1
+        pan.delegate = context.coordinator
         arView.addGestureRecognizer(pan)
 
         context.coordinator.arView = arView
@@ -157,7 +160,7 @@ struct ARViewContainer: UIViewRepresentable {
     }
 
     // MARK: - Coordinator
-    class Coordinator: NSObject {
+    class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: ARViewContainer
         weak var arView: ARView?
         
@@ -174,11 +177,16 @@ struct ARViewContainer: UIViewRepresentable {
         var pendingEntity: Entity?
         private var loadTask: Task<Void, Never>?
         private var isCapturingSnapshot = false
-        private var lastPanRaycastTime: TimeInterval = 0
         
         // Gesture transforms tracking
         var initialScale: SIMD3<Float> = ARConstants.defaultScale
         var initialOrientation: simd_quatf = ARConstants.defaultOrientation
+        var dragOffset: SIMD3<Float> = .zero
+        
+        // Lightweight stepped haptic generators
+        private let stepHaptic = UISelectionFeedbackGenerator()
+        private let notchHaptic = UIImpactFeedbackGenerator(style: .medium)
+        private var lastHapticPercentage: Int = 100
 
         init(parent: ARViewContainer) {
             self.parent = parent
@@ -440,6 +448,10 @@ struct ARViewContainer: UIViewRepresentable {
                 initialScale = entity.scale
                 let currentScale = entity.scale.x
                 let percentage = Int(round(currentScale * 100.0))
+                lastHapticPercentage = percentage
+                stepHaptic.prepare()
+                notchHaptic.prepare()
+                
                 let dims = SIMD3<Int>(
                     max(1, Int(round(baseExtents.x * currentScale * 100.0))),
                     max(1, Int(round(baseExtents.y * currentScale * 100.0))),
@@ -462,6 +474,19 @@ struct ARViewContainer: UIViewRepresentable {
                 entity.scale = SIMD3<Float>(repeating: clampedScale)
                 
                 let percentage = Int(round(clampedScale * 100.0))
+                
+                // Stepped Haptic feedback: Subtle tick every 5% increment + firm notch when crossing 100%
+                if abs(percentage - lastHapticPercentage) >= 5 {
+                    if (lastHapticPercentage < 100 && percentage >= 100) || (lastHapticPercentage > 100 && percentage <= 100) || percentage == 100 {
+                        notchHaptic.impactOccurred()
+                        notchHaptic.prepare()
+                    } else {
+                        stepHaptic.selectionChanged()
+                        stepHaptic.prepare()
+                    }
+                    lastHapticPercentage = percentage
+                }
+                
                 let dims = SIMD3<Int>(
                     max(1, Int(round(baseExtents.x * clampedScale * 100.0))),
                     max(1, Int(round(baseExtents.y * clampedScale * 100.0))),
@@ -503,19 +528,74 @@ struct ARViewContainer: UIViewRepresentable {
         
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
             guard let arView = recognizer.view as? ARView else { return }
-            guard let selectedId = parent.selectedModelId, let currentAnchor = modelAnchors[selectedId] else { return }
-            
-            // Performance: Smooth 60FPS throttling for real-time dragging
-            let now = CACurrentMediaTime()
-            guard now - lastPanRaycastTime >= 0.016 || recognizer.state == .ended else { return }
-            lastPanRaycastTime = now
-            
             let location = recognizer.location(in: arView)
-            guard let worldTransform = ARSurfaceManager.performSurfaceRaycast(at: location, in: arView) else { return }
             
-            if recognizer.state == .changed || recognizer.state == .ended {
-                currentAnchor.setTransformMatrix(worldTransform, relativeTo: nil)
+            switch recognizer.state {
+            case .began:
+                // 1. Direct Touch Auto-Selection: Touching any placed model immediately selects it
+                if let hitEntity = arView.entity(at: location), let modelId = findModelId(for: hitEntity) {
+                    if parent.selectedModelId != modelId {
+                        parent.onModelSelected(modelId)
+                    }
+                }
+                
+                // 2. Compute initial touch grab offset on the surface plane so model never jumps
+                guard let selectedId = parent.selectedModelId, let currentAnchor = modelAnchors[selectedId] else { return }
+                let currentPos = currentAnchor.position(relativeTo: nil)
+                
+                if let ray = arView.ray(through: location), abs(ray.direction.y) > 0.001 {
+                    let t = (currentPos.y - ray.origin.y) / ray.direction.y
+                    if t > 0 {
+                        let touchPlanePoint = ray.origin + t * ray.direction
+                        dragOffset = SIMD3<Float>(currentPos.x - touchPlanePoint.x, 0, currentPos.z - touchPlanePoint.z)
+                    } else {
+                        dragOffset = .zero
+                    }
+                } else {
+                    dragOffset = .zero
+                }
+                
+            case .changed:
+                guard let selectedId = parent.selectedModelId, let currentAnchor = modelAnchors[selectedId] else { return }
+                let currentPos = currentAnchor.position(relativeTo: nil)
+                
+                // Priority 1: Physical surface raycast (tracks real table/floor contours)
+                if let worldTransform = ARSurfaceManager.performSurfaceRaycast(at: location, in: arView) {
+                    let raycastPos = SIMD3<Float>(worldTransform.columns.3.x, worldTransform.columns.3.y, worldTransform.columns.3.z)
+                    currentAnchor.position = SIMD3<Float>(
+                        raycastPos.x + dragOffset.x,
+                        raycastPos.y,
+                        raycastPos.z + dragOffset.z
+                    )
+                } else if let ray = arView.ray(through: location), abs(ray.direction.y) > 0.001 {
+                    // Priority 2: Unconstrained horizontal plane intersection (guarantees continuous 1:1 finger tracking across gaps)
+                    let t = (currentPos.y - ray.origin.y) / ray.direction.y
+                    if t > 0 && t < 30.0 {
+                        let touchPlanePoint = ray.origin + t * ray.direction
+                        currentAnchor.position = SIMD3<Float>(
+                            touchPlanePoint.x + dragOffset.x,
+                            currentPos.y,
+                            touchPlanePoint.z + dragOffset.z
+                        )
+                    }
+                }
+                
+            case .ended, .cancelled:
+                dragOffset = .zero
+                
+            default:
+                break
             }
+        }
+        
+        // MARK: - UIGestureRecognizerDelegate
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            // Allow simultaneous two-finger scaling and rotation
+            if (gestureRecognizer is UIPinchGestureRecognizer && otherGestureRecognizer is UIRotationGestureRecognizer) ||
+               (gestureRecognizer is UIRotationGestureRecognizer && otherGestureRecognizer is UIPinchGestureRecognizer) {
+                return true
+            }
+            return false
         }
     }
 }
