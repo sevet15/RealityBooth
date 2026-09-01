@@ -3,149 +3,445 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy - Real ini</title>
+    <title>Real ini - True 1:1 AR 3D Model & Booth Visualizer</title>
+    <meta name="description" content="Preview 3D models and trade show booths in real-world 1:1 scale with precision LiDAR grounding, live Apple HIG dimensions, and dynamic studio lighting.">
     <style>
+        :root {
+            --primary: #0071e3;
+            --primary-hover: #0077ed;
+            --dark: #1d1d1f;
+            --secondary: #86868b;
+            --bg: #fbfbfd;
+            --card-bg: #ffffff;
+            --border: rgba(0, 0, 0, 0.08);
+        }
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.65;
-            color: #1d1d1f;
-            background-color: #f5f5f7;
-            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--dark);
+            line-height: 1.5;
             -webkit-font-smoothing: antialiased;
         }
-        .container {
-            background: #ffffff;
-            max-width: 760px;
+        /* Navigation */
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(251, 251, 253, 0.82);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+        }
+        .nav-container {
+            max-width: 1040px;
             margin: 0 auto;
-            padding: 48px;
-            border-radius: 20px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
-            border: 1px solid rgba(0, 0, 0, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 24px;
         }
-        .badge {
-            display: inline-block;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #0071e3;
-            background: rgba(0, 113, 227, 0.08);
-            padding: 4px 12px;
-            border-radius: 12px;
-            margin-bottom: 12px;
-        }
-        h1 {
-            font-size: 32px;
+        .logo {
+            font-size: 20px;
             font-weight: 700;
             letter-spacing: -0.5px;
-            color: #111111;
-            margin-bottom: 6px;
+            color: var(--dark);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .date {
-            color: #86868b;
+        .logo-badge {
+            background: linear-gradient(135deg, #0071e3, #42a5f5);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+        nav a {
+            color: var(--secondary);
+            text-decoration: none;
             font-size: 14px;
-            margin-bottom: 30px;
-            display: block;
+            font-weight: 500;
+            margin-left: 24px;
+            transition: color 0.2s ease;
         }
-        p {
-            font-size: 15px;
-            color: #333336;
-            margin-bottom: 18px;
+        nav a:hover {
+            color: var(--primary);
         }
-        h2 {
+        /* Hero Section */
+        .hero {
+            max-width: 880px;
+            margin: 80px auto 60px;
+            text-align: center;
+            padding: 0 24px;
+        }
+        .hero-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary);
+            background: rgba(0, 113, 227, 0.08);
+            padding: 6px 16px;
+            border-radius: 99px;
+            margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: 52px;
+            line-height: 1.08;
+            font-weight: 700;
+            letter-spacing: -1.2px;
+            margin-bottom: 20px;
+            color: #111;
+        }
+        .hero p {
+            font-size: 20px;
+            line-height: 1.45;
+            color: var(--secondary);
+            max-width: 680px;
+            margin: 0 auto 36px;
+        }
+        .cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--dark);
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 14px 28px;
+            border-radius: 99px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+        .cta-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        }
+        /* Feature Grid */
+        .features {
+            max-width: 1040px;
+            margin: 60px auto;
+            padding: 0 24px;
+        }
+        .section-title {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .section-title h2 {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.8px;
+            margin-bottom: 12px;
+        }
+        .section-title p {
+            font-size: 17px;
+            color: var(--secondary);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 32px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+        }
+        .card-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+        .card h3 {
             font-size: 20px;
             font-weight: 600;
-            color: #1d1d1f;
-            margin-top: 32px;
-            margin-bottom: 12px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #f0f0f2;
+            letter-spacing: -0.3px;
+            margin-bottom: 10px;
+            color: #111;
         }
-        ul {
-            padding-left: 22px;
-            margin-bottom: 20px;
-        }
-        li {
+        .card p {
             font-size: 15px;
-            color: #333336;
+            line-height: 1.55;
+            color: var(--secondary);
+        }
+        /* Audience Section */
+        .audiences {
+            max-width: 1040px;
+            margin: 80px auto;
+            padding: 0 24px;
+        }
+        .split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+        .audience-card {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+        .audience-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #0071e3, #42a5f5);
+        }
+        .audience-card h3 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+        .audience-card ul {
+            list-style: none;
+            margin-top: 18px;
+        }
+        .audience-card li {
+            font-size: 15px;
+            color: #48484a;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .audience-card li::before {
+            content: "✓";
+            color: var(--primary);
+            font-weight: 700;
+        }
+        /* Formats banner */
+        .formats-banner {
+            max-width: 1040px;
+            margin: 60px auto;
+            padding: 36px;
+            background: linear-gradient(135deg, #111, #1d1d1f);
+            color: #fff;
+            border-radius: 24px;
+            text-align: center;
+        }
+        .formats-banner h3 {
+            font-size: 24px;
+            font-weight: 700;
             margin-bottom: 10px;
         }
-        li strong {
-            color: #111111;
+        .formats-banner p {
+            color: #a1a1a6;
+            margin-bottom: 20px;
+            font-size: 16px;
         }
-        .contact-box {
-            background: #fbfbfd;
-            border: 1px solid #e5e5ea;
-            border-radius: 14px;
-            padding: 20px;
-            margin-top: 14px;
+        .pills {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-        .contact-box p {
-            margin-bottom: 6px;
+        .file-pill {
+            background: rgba(255, 255, 255, 0.12);
+            padding: 8px 18px;
+            border-radius: 99px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
-        .contact-box a {
-            color: #0071e3;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .contact-box a:hover {
-            text-decoration: underline;
-        }
+        /* Footer */
         footer {
-            margin-top: 36px;
-            padding-top: 20px;
-            border-top: 1px solid #f0f0f2;
-            text-align: center;
-            font-size: 13px;
-            color: #86868b;
+            border-top: 1px solid var(--border);
+            padding: 48px 24px;
+            background: #ffffff;
+            margin-top: 100px;
         }
-        @media (max-width: 600px) {
-            .container {
-                padding: 28px 20px;
-                border-radius: 16px;
-            }
-            h1 {
-                font-size: 26px;
-            }
+        .footer-container {
+            max-width: 1040px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .footer-links a {
+            color: var(--secondary);
+            text-decoration: none;
+            font-size: 14px;
+            margin-right: 24px;
+            transition: color 0.2s ease;
+        }
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+        .copyright {
+            font-size: 13px;
+            color: var(--secondary);
+        }
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 38px; }
+            .hero p { font-size: 17px; }
+            .split { grid-template-columns: 1fr; }
+            .audience-card { padding: 28px; }
+            .footer-container { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <span class="badge">Legal</span>
-        <h1>Privacy Policy for Real ini</h1>
-        <span class="date">Last updated: September 1, 2026</span>
 
-        <p><strong>Real ini</strong>, developed by <strong>Steven Valentino</strong>, is committed to protecting your privacy. This Privacy Policy outlines how the application operates and our strict commitment to zero data collection.</p>
-
-        <h2>1. Zero Personal Data Collection</h2>
-        <p>Real ini does <strong>NOT</strong> collect, track, store, or transmit any personal identifiable information, device identifiers, or analytics. The app functions completely offline and all 3D rendering and RealityKit computations are performed locally on your device.</p>
-
-        <h2>2. Device Permissions &amp; Usage</h2>
-        <p>Real ini requests only the minimum device permissions necessary to provide augmented reality visualization:</p>
-        <ul>
-            <li><strong>Camera Access:</strong> Used exclusively to run Apple ARKit and RealityKit sessions for surface detection and 3D model placement. Camera frames are processed strictly in real-time volatile memory (RAM) and are never recorded, analyzed for biometrics, or sent to any server.</li>
-            <li><strong>Photo Library Access:</strong> Requested only when you explicitly tap the camera shutter button to save an AR snapshot directly to your local device. There is no access to or reading of your existing photos.</li>
-        </ul>
-
-        <h2>3. Third-Party Services &amp; Tracking</h2>
-        <p>Real ini does not include any third-party tracking SDKs, advertising networks, or background telemetry. No user data is ever sold or shared.</p>
-
-        <h2>4. Contact Information</h2>
-        <p>If you have any questions or suggestions regarding this Privacy Policy, please contact:</p>
-        <div class="contact-box">
-            <p><strong>Developer:</strong> Steven Valentino</p>
-            <p><strong>Email:</strong> <a href="mailto:stvalentino999@gmail.com">stvalentino999@gmail.com</a></p>
+    <!-- Navigation Header -->
+    <header>
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <span>Real ini</span>
+                <span class="logo-badge">AR 1:1</span>
+            </a>
+            <nav>
+                <a href="#features">Features</a>
+                <a href="#audiences">Who It’s For</a>
+                <a href="privacy.html">Privacy</a>
+                <a href="#support">Support</a>
+            </nav>
         </div>
+    </header>
 
-        <footer>
-            &copy; 2026 Steven Valentino. All rights reserved.
-        </footer>
-    </div>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-pill">
+            <span>✨ Precision Spatial Computing</span>
+        </div>
+        <h1>Visualize 3D Models in True 1:1 Scale.</h1>
+        <p>The precision AR visualizer for 3D printing makers and exhibition booth designers. Measure exact real-world dimensions, slide across floors, and pitch with studio lighting.</p>
+        <a href="#features" class="cta-btn">
+            <span>Explore Features</span>
+            <span>↓</span>
+        </a>
+    </section>
+
+    <!-- Supported Formats Banner -->
+    <section class="formats-banner">
+        <h3>Import Your Own Custom 3D Files</h3>
+        <p>Seamlessly open files from Blender, Nomad Sculpt, Shapr3D, Maya, Rhino, or Reality Composer.</p>
+        <div class="pills">
+            <div class="file-pill">.USDZ</div>
+            <div class="file-pill">.USDC</div>
+            <div class="file-pill">.REALITY</div>
+            <div class="file-pill">AirDrop &amp; Files</div>
+        </div>
+    </section>
+
+    <!-- Core Features Grid -->
+    <section class="features" id="features">
+        <div class="section-title">
+            <h2>Engineered for Spatial Accuracy</h2>
+            <p>Every feature built with millimeter precision and fluid real-time responsiveness.</p>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-icon">📏</div>
+                <h3>Apple HIG 1:1 Measurements</h3>
+                <p>Live floating dimension callouts follow Apple HIG sequence: Width &times; Length &times; Height in centimeters (W &times; L &times; H cm) with 5% to 500% zoom.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🪵</div>
+                <h3>Precision LiDAR Grounding</h3>
+                <p>Advanced container-space raycasting anchors models flat on floors, tables, and desks at ground level (y = 0.0m) with zero floating.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">👆</div>
+                <h3>1-Finger Surface Sliding</h3>
+                <p>Touch any placed 3D model and glide it smoothly across the surface at 60 FPS. No repetitive single-tap positioning needed.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">💡</div>
+                <h3>Scale-Consistent Studio Lighting</h3>
+                <p>Multi-directional soft-white studio lighting automatically regulates intensity as you scale, preventing glare or dimming.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">📳</div>
+                <h3>Stepped Tactile Haptics</h3>
+                <p>Feel physical ticks every 5% scale increment, with a distinct firm notch when snapping to exact 100% 1:1 true scale.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🔄</div>
+                <h3>Lag-Free 100% Reset</h3>
+                <p>Instantly restore original 1:1 scale and neutral orientation with a single tap, accompanied by smooth loading feedback.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Target Audiences -->
+    <section class="audiences" id="audiences">
+        <div class="section-title">
+            <h2>Built for Creators &amp; Professionals</h2>
+            <p>Designed to solve real-world scale and presentation challenges.</p>
+        </div>
+        <div class="split">
+            <div class="audience-card">
+                <h3>3D Printing Artists &amp; Makers</h3>
+                <p>Never waste filament or print hours on miscalculated scale again.</p>
+                <ul>
+                    <li>Verify tabletop clearance and room proportions before printing.</li>
+                    <li>Inspect fine overhangs and layer details with studio lighting.</li>
+                    <li>Feel exact 1:1 scale with tactile haptic notch feedback.</li>
+                    <li>Zero login required &mdash; works 100% offline on-device.</li>
+                </ul>
+            </div>
+            <div class="audience-card">
+                <h3>Exhibition &amp; Booth Designers</h3>
+                <p>Pitch full-scale exhibition stands directly on the venue floor.</p>
+                <ul>
+                    <li>Walk clients through 1:1 scale pop-up kiosks and backdrops.</li>
+                    <li>Slide structures across venue floors to test visitor pathways.</li>
+                    <li>Stage multi-model setups with furniture, banners, and props.</li>
+                    <li>Capture high-resolution studio-lit photos for presentations.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Support Section -->
+    <section class="features" id="support" style="margin-top: 40px;">
+        <div class="card" style="text-align: center; max-width: 640px; margin: 0 auto;">
+            <div class="card-icon">💬</div>
+            <h3>Need Help or Have Feedback?</h3>
+            <p style="margin-bottom: 20px;">We are dedicated to providing the best spatial visualization experience. Contact developer support directly:</p>
+            <p><strong>Developer:</strong> Steven Valentino<br>
+               <strong>Email:</strong> <a href="mailto:stvalentino999@gmail.com" style="color: var(--primary); text-decoration: none; font-weight: 600;">stvalentino999@gmail.com</a></p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-links">
+                <a href="#">Overview</a>
+                <a href="privacy.html">Privacy Policy</a>
+                <a href="#support">Support</a>
+                <a href="mailto:stvalentino999@gmail.com">Contact</a>
+            </div>
+            <div class="copyright">
+                &copy; 2026 Steven Valentino. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
 </body>
 </html>
