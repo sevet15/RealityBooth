@@ -24,10 +24,10 @@ enum ARConstants {
     static let selectionRingThickness: Float = 0.015
     
     // MARK: - Soft White Studio Lighting
-    static let keyLightIntensity: Float = 4200.0
-    static let fillLightIntensity: Float = 2800.0
-    static let topLightIntensity: Float = 3200.0
-    static let modelPointLightIntensity: Float = 3500.0
+    static let keyLightIntensity: Float = 3200.0
+    static let fillLightIntensity: Float = 2200.0
+    static let topLightIntensity: Float = 2400.0
+    static let modelPointLightIntensity: Float = 2800.0
     static let keyLightPosition: SIMD3<Float> = SIMD3<Float>(1.2, 3.5, 2.0)
     static let fillLightPosition: SIMD3<Float> = SIMD3<Float>(-1.8, 2.8, 1.5)
     static let topLightPosition: SIMD3<Float> = SIMD3<Float>(0.0, 4.0, 0.2)

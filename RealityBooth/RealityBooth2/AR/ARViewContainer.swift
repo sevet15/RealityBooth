@@ -225,7 +225,14 @@ struct ARViewContainer: UIViewRepresentable {
             initialScale = ARConstants.defaultScale
             initialOrientation = ARConstants.defaultOrientation
             
-            // 2. Read base dimensions
+            // 2. Restore base soft white point light intensity
+            if let lightEntity = entity.findEntity(named: "SoftWhiteModelLight") as? HasPointLight {
+                var lightComp = lightEntity.light
+                lightComp.intensity = ARConstants.modelPointLightIntensity
+                lightEntity.light = lightComp
+            }
+            
+            // 3. Read base dimensions
             if let baseExtents = baseDimensions[selectedId] {
                 let dims = SIMD3<Int>(
                     max(1, Int(round(baseExtents.x * 100.0))),
@@ -472,6 +479,13 @@ struct ARViewContainer: UIViewRepresentable {
                 let clampedScale = max(ARConstants.minScale, min(ARConstants.maxScale, newScaleVal))
                 
                 entity.scale = SIMD3<Float>(repeating: clampedScale)
+                
+                // Dynamically regulate point light intensity with (scale)^2 to counteract inverse-square distance shrinkage (E = I / d^2)
+                if let lightEntity = entity.findEntity(named: "SoftWhiteModelLight") as? HasPointLight {
+                    var lightComp = lightEntity.light
+                    lightComp.intensity = ARConstants.modelPointLightIntensity * clampedScale * clampedScale
+                    lightEntity.light = lightComp
+                }
                 
                 let percentage = Int(round(clampedScale * 100.0))
                 
