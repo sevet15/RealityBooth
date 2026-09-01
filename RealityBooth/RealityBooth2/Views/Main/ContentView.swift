@@ -8,9 +8,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Root AR View composing the scene, HUD layers, controls, and dialogs using clean MVVM architecture
+/// Root AR View composing the scene, HUD layers, controls, and non-floating bottom sheets with Apple HIG iPadOS adaptations
 struct ContentView: View {
     @StateObject private var viewModel = ARViewModel()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    var isRegular: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
         ZStack {
@@ -54,13 +56,13 @@ struct ContentView: View {
             
             // MARK: - Layer 1: Foreground HUD & Controls
             VStack(spacing: 0) {
-                // Top HUD & Dynamic Context Banner
-                VStack(spacing: 10) {
+                // Top HUD & Dynamic Context Banner (Apple HIG centered max width)
+                VStack(spacing: isRegular ? 12 : 10) {
                     TopHUDBarView(viewModel: viewModel)
                     
                     InstructionBannerView(viewModel: viewModel)
                 }
-                .padding(.top, 8)
+                .padding(.top, isRegular ? 14 : 8)
                 
                 Spacer()
                 
@@ -73,7 +75,7 @@ struct ContentView: View {
                 Spacer()
                 
                 // Bottom Area: Camera Shutter & Multi-Model Toolbar
-                VStack(spacing: 12) {
+                VStack(spacing: isRegular ? 16 : 12) {
                     if !viewModel.models.isEmpty && viewModel.pendingModel == nil {
                         ShutterButtonView(viewModel: viewModel)
                     }
@@ -87,11 +89,15 @@ struct ContentView: View {
                         onDeselectModel: { viewModel.deselectModel() },
                         onDeleteSelectedModel: { viewModel.deleteSelectedModel() },
                         onResetSelectedModel: { viewModel.resetSelectedModel() },
-                        onAddTap: { viewModel.showModelPicker = true },
+                        onAddTap: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                viewModel.showModelPicker = true
+                            }
+                        },
                         onCancelPending: { viewModel.cancelPendingPlacement() }
                     )
                 }
-                .padding(.bottom, 12)
+                .padding(.bottom, isRegular ? 20 : 12)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.models.isEmpty)
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: viewModel.pendingModel)
             }
@@ -110,6 +116,62 @@ struct ContentView: View {
                 LoadingOverlayView(message: viewModel.loadingMessage)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     .zIndex(20)
+            }
+            
+            // MARK: - Layer 2.5: Non-Floating Bottom Sheet Drawer (Firmly grounded at bottom edge on iPadOS & iOS)
+            if viewModel.showModelPicker {
+                ZStack(alignment: .bottom) {
+                    // Dimmed Backdrop (Tap to dismiss)
+                    Color.black.opacity(0.45)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                viewModel.showModelPicker = false
+                            }
+                        }
+                    
+                    // Bottom Sheet Drawer anchored directly to bottom edge
+                    VStack(spacing: 0) {
+                        ModelPickerSheet(
+                            currentModelCount: viewModel.models.count,
+                            maxModels: ARConstants.maxSimultaneousModels,
+                            onSelectBuiltIn: { sample in
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                                    viewModel.showModelPicker = false
+                                }
+                                viewModel.startPlacing(sample: sample)
+                            },
+                            onOpenCustomFilePicker: {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                                    viewModel.showModelPicker = false
+                                }
+                                viewModel.showCustomFilePicker = true
+                            },
+                            onDismiss: {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                                    viewModel.showModelPicker = false
+                                }
+                            }
+                        )
+                        .frame(maxHeight: isRegular ? 540 : 490)
+                        .frame(maxWidth: isRegular ? 680 : .infinity)
+                        .background(Color(red: 0.14, green: 0.14, blue: 0.16))
+                        .clipShape(
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: 28,
+                                bottomLeadingRadius: 0,
+                                bottomTrailingRadius: 0,
+                                topTrailingRadius: 28,
+                                style: .continuous
+                            )
+                        )
+                        .shadow(color: Color.black.opacity(0.4), radius: 24, x: 0, y: -4)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .zIndex(22)
+                .ignoresSafeArea(edges: .bottom)
             }
             
             // MARK: - Layer 3: Splash Screen
@@ -132,22 +194,6 @@ struct ContentView: View {
                 ToastNotificationView()
                     .zIndex(35)
             }
-        }
-        .sheet(isPresented: $viewModel.showModelPicker) {
-            ModelPickerSheet(
-                currentModelCount: viewModel.models.count,
-                maxModels: ARConstants.maxSimultaneousModels,
-                onSelectBuiltIn: { sample in
-                    viewModel.startPlacing(sample: sample)
-                },
-                onOpenCustomFilePicker: {
-                    viewModel.showCustomFilePicker = true
-                }
-            )
-            .presentationDetents([.fraction(0.62), .large])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(30)
-            .presentationBackground(Color(red: 0.14, green: 0.14, blue: 0.16))
         }
         .fileImporter(
             isPresented: $viewModel.showCustomFilePicker,
