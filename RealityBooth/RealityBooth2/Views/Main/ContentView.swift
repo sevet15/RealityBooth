@@ -50,6 +50,9 @@ struct ContentView: View {
                 },
                 onError: { error in
                     viewModel.showError(error.localizedDescription)
+                },
+                onSessionReset: {
+                    viewModel.handleSessionReset()
                 }
             )
             .ignoresSafeArea()

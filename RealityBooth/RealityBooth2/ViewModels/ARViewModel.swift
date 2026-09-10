@@ -199,6 +199,17 @@ final class ARViewModel: ObservableObject {
         }
     }
     
+    func handleSessionReset() {
+        withAnimation {
+            self.models.removeAll()
+            self.selectedModelId = nil
+            self.pendingModel = nil
+            self.scalePercentage = nil
+            self.scaleDimensionsCm = nil
+            self.isLoading = false
+        }
+    }
+    
     func clearAllModels() {
         loadingMessage = "Clearing 3D Models…"
         withAnimation {
