@@ -15,7 +15,7 @@ struct CapsuleActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.semibold))
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
             .background(

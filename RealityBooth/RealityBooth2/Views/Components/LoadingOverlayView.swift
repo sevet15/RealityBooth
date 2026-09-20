@@ -14,11 +14,11 @@ struct LoadingOverlayView: View {
     var body: some View {
         HStack(spacing: 12) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .primary))
+                .progressViewStyle(.circular)
             
             Text(message)
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.primary)
+                .foregroundStyle(.primary)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

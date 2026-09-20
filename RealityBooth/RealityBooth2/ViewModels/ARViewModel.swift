@@ -190,8 +190,8 @@ final class ARViewModel: ObservableObject {
         
         self.resetTrigger = true
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            guard let self = self else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
             withAnimation(.easeOut(duration: 0.15)) {
                 self.isLoading = false
                 self.loadingMessage = "Loading 3D Model…"
@@ -216,18 +216,18 @@ final class ARViewModel: ObservableObject {
             isLoading = true
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
             withAnimation {
                 self.models.removeAll()
                 self.selectedModelId = nil
                 self.pendingModel = nil
             }
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                withAnimation {
-                    self.isLoading = false
-                    self.loadingMessage = "Loading 3D Model…"
-                }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            withAnimation {
+                self.isLoading = false
+                self.loadingMessage = "Loading 3D Model…"
             }
         }
     }
@@ -246,7 +246,8 @@ final class ARViewModel: ObservableObject {
             showShutterFlash = true
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
             withAnimation(.easeOut(duration: 0.2)) {
                 self.showShutterFlash = false
             }
@@ -256,27 +257,27 @@ final class ARViewModel: ObservableObject {
     }
     
     func handleSnapshotCaptured(_ image: UIImage) {
-        PhotoLibraryManager.shared.saveImage(image) { [weak self] result in
-            guard let self = self else { return }
-            self.isCapturingSnapshot = false
-            
-            withAnimation(.easeInOut(duration: 0.2)) {
-                self.isLoading = false
-                self.loadingMessage = "Loading 3D Model…"
+        Task { @MainActor in
+            defer {
+                self.isCapturingSnapshot = false
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    self.isLoading = false
+                    self.loadingMessage = "Loading 3D Model…"
+                }
             }
             
-            switch result {
-            case .success:
+            do {
+                try await PhotoLibraryManager.shared.saveImage(image)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     self.showScreenshotSavedToast = true
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        self.showScreenshotSavedToast = false
-                    }
+                
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                withAnimation(.easeOut(duration: 0.3)) {
+                    self.showScreenshotSavedToast = false
                 }
-            case .failure(let error):
+            } catch {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
                 self.showError(error.localizedDescription)
             }

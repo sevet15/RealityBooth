@@ -32,11 +32,11 @@ struct SplashScreenView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + ARConstants.splashScreenDuration) {
-                withAnimation(.easeOut(duration: ARConstants.splashScreenFadeDuration)) {
-                    showSplash = false
-                }
+        .task {
+            try? await Task.sleep(nanoseconds: UInt64(ARConstants.splashScreenDuration * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: ARConstants.splashScreenFadeDuration)) {
+                showSplash = false
             }
         }
     }

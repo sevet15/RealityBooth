@@ -40,10 +40,10 @@ struct ModelPickerSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Add 3D Model")
                         .font(isRegular ? .title2.weight(.bold) : .title3.weight(.bold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     Text("\(currentModelCount) of \(maxModels) slots used")
                         .font(.caption)
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundStyle(Color.white.opacity(0.6))
                 }
                 
                 Spacer()
@@ -53,7 +53,7 @@ struct ModelPickerSheet: View {
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: isRegular ? 28 : 24))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundStyle(Color.white.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .hoverEffect(.highlight)
@@ -75,7 +75,7 @@ struct ModelPickerSheet: View {
                     // Custom Files Header
                     Text("Custom Files")
                         .font(isRegular ? .headline.weight(.semibold) : .subheadline.weight(.semibold))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundStyle(.white.opacity(0.9))
                         .padding(.top, 4)
                         .padding(.horizontal, 4)
                     
@@ -137,18 +137,18 @@ struct ModelPickerSheet: View {
                     
                     Image(systemName: "cube.fill")
                         .font(isRegular ? .title2 : .title3)
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 }
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(sample.name)
                         .font(isRegular ? .body.weight(.bold) : .body.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .lineLimit(1)
                     
                     Text("Sample 3D Asset • USDZ")
                         .font(isRegular ? .subheadline : .caption)
-                        .foregroundColor(Color(white: 0.65))
+                        .foregroundStyle(Color(white: 0.65))
                         .lineLimit(1)
                 }
                 
@@ -156,7 +156,7 @@ struct ModelPickerSheet: View {
                 
                 Image(systemName: isMaxCapacity ? "lock.fill" : "plus.circle.fill")
                     .font(.system(size: isRegular ? 28 : 26))
-                    .foregroundColor(isMaxCapacity ? Color(white: 0.35) : Color(red: 0.0, green: 0.48, blue: 1.0))
+                    .foregroundStyle(isMaxCapacity ? Color(white: 0.35) : Color(red: 0.0, green: 0.48, blue: 1.0))
             }
             .padding(.horizontal, isRegular ? 18 : 16)
             .padding(.vertical, isRegular ? 14 : 12)
@@ -175,7 +175,8 @@ struct ModelPickerSheet: View {
             guard !isMaxCapacity else { return }
             UISelectionFeedbackGenerator().selectionChanged()
             dismissSheet()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 250_000_000)
                 onOpenCustomFilePicker()
             }
         }) {
@@ -192,17 +193,17 @@ struct ModelPickerSheet: View {
                     
                     Image(systemName: "folder.badge.plus")
                         .font(isRegular ? .title2 : .title3)
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 }
                 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Import from Files")
                         .font(isRegular ? .body.weight(.bold) : .body.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     
                     Text("Supports .usdz, .usdc, and .reality files")
                         .font(isRegular ? .subheadline : .caption)
-                        .foregroundColor(Color(white: 0.65))
+                        .foregroundStyle(Color(white: 0.65))
                         .lineLimit(1)
                 }
                 
@@ -210,7 +211,7 @@ struct ModelPickerSheet: View {
                 
                 Image(systemName: "chevron.right")
                     .font(isRegular ? .body.weight(.bold) : .body.weight(.semibold))
-                    .foregroundColor(Color(white: 0.5))
+                    .foregroundStyle(Color(white: 0.5))
             }
             .padding(.horizontal, isRegular ? 18 : 16)
             .padding(.vertical, isRegular ? 14 : 12)

@@ -22,7 +22,7 @@ struct InstructionBannerView: View {
                 Text("Tap a flat surface to place \(pending.name)")
                     .font(isRegular ? .body.weight(.semibold) : .subheadline.weight(.semibold))
             }
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .padding(.horizontal, isRegular ? 24 : 18)
             .padding(.vertical, isRegular ? 14 : 12)
             .frame(maxWidth: .infinity)
