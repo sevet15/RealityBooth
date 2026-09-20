@@ -48,7 +48,7 @@ struct ModelFileManager {
         let destinationURL = uniqueFolder.appendingPathComponent(sourceURL.lastPathComponent)
         
         do {
-            if fileManager.fileExists(atPath: destinationURL.path) {
+            if fileManager.fileExists(atPath: destinationURL.path(percentEncoded: false)) {
                 try fileManager.removeItem(at: destinationURL)
             }
             try fileManager.copyItem(at: sourceURL, to: destinationURL)

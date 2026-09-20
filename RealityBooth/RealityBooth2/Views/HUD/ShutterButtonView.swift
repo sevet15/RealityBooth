@@ -27,7 +27,7 @@ struct ShutterButtonView: View {
         }) {
             Image(systemName: "camera.fill")
                 .font(.system(size: iconSize, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(width: buttonSize, height: buttonSize)
                 .liquidGlassCircle()
         }

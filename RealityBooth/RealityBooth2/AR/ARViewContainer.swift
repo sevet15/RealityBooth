@@ -28,6 +28,7 @@ struct ARViewContainer: UIViewRepresentable {
     var onScaleChanged: ((Int, SIMD3<Int>, CGPoint?) -> Void)? = nil
     var onScaleEnded: (() -> Void)? = nil
     var onError: ((Error) -> Void)? = nil
+    var onSessionReset: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -119,6 +120,23 @@ struct ARViewContainer: UIViewRepresentable {
         pan.delegate = context.coordinator
         arView.addGestureRecognizer(pan)
 
+        // 7. Setup Apple's ARCoachingOverlayView centered in ARView for standardized surface onboarding
+        let coachingOverlay = ARCoachingOverlayView()
+        coachingOverlay.session = arView.session
+        coachingOverlay.delegate = context.coordinator
+        coachingOverlay.goal = .horizontalPlane
+        coachingOverlay.activatesAutomatically = true
+        coachingOverlay.translatesAutoresizingMaskIntoConstraints = false
+        arView.addSubview(coachingOverlay)
+        
+        NSLayoutConstraint.activate([
+            coachingOverlay.topAnchor.constraint(equalTo: arView.topAnchor),
+            coachingOverlay.bottomAnchor.constraint(equalTo: arView.bottomAnchor),
+            coachingOverlay.leadingAnchor.constraint(equalTo: arView.leadingAnchor),
+            coachingOverlay.trailingAnchor.constraint(equalTo: arView.trailingAnchor)
+        ])
+        
+        context.coordinator.coachingOverlay = coachingOverlay
         context.coordinator.arView = arView
         return arView
     }
@@ -138,12 +156,24 @@ struct ARViewContainer: UIViewRepresentable {
             }
         }
         
-        // 2. Handle pending model loading or cancellation
+        // 2. Handle pending model loading or cancellation & coaching overlay display
         if let pending = pendingModel {
+            if context.coordinator.currentPendingModelId != pending.id {
+                context.coordinator.currentPendingModelId = pending.id
+                // When entering placement mode for this model, show coaching overlay centered to guide surface onboarding
+                context.coordinator.coachingOverlay?.setActive(true, animated: true)
+            }
             if context.coordinator.currentLoadingId != pending.id && context.coordinator.loadedEntities[pending.id] == nil {
                 context.coordinator.loadPendingModel(pending)
             }
         } else {
+            if context.coordinator.currentPendingModelId != nil {
+                context.coordinator.currentPendingModelId = nil
+                // If placement cancelled, deactivate coaching overlay
+                if context.coordinator.coachingOverlay?.isActive == true {
+                    context.coordinator.coachingOverlay?.setActive(false, animated: true)
+                }
+            }
             context.coordinator.cancelPendingModel()
         }
         
@@ -160,9 +190,11 @@ struct ARViewContainer: UIViewRepresentable {
     }
 
     // MARK: - Coordinator
-    class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    class Coordinator: NSObject, UIGestureRecognizerDelegate, ARCoachingOverlayViewDelegate {
         var parent: ARViewContainer
         weak var arView: ARView?
+        var coachingOverlay: ARCoachingOverlayView?
+        var currentPendingModelId: UUID?
         
         // Multi-Model storage: Maps Model ID to AnchorEntity and loaded root Entity
         var modelAnchors: [UUID: AnchorEntity] = [:]
@@ -393,6 +425,10 @@ struct ARViewContainer: UIViewRepresentable {
             
             // 2. Perform multi-priority surface raycast
             guard let worldTransform = ARSurfaceManager.performSurfaceRaycast(at: tapLocation, in: arView) else {
+                // If user tapped to place a model on a surface but none was detected yet, trigger coaching overlay
+                if parent.pendingModel != nil {
+                    coachingOverlay?.setActive(true, animated: true)
+                }
                 return
             }
 
@@ -408,6 +444,12 @@ struct ARViewContainer: UIViewRepresentable {
                 
                 self.pendingEntity = nil
                 self.currentLoadingId = nil
+                self.currentPendingModelId = nil
+                
+                // Deactivate coaching overlay once model is successfully placed on surface
+                if coachingOverlay?.isActive == true {
+                    coachingOverlay?.setActive(false, animated: true)
+                }
                 
                 parent.onModelPlaced(modelItem.id)
                 return
@@ -610,6 +652,61 @@ struct ARViewContainer: UIViewRepresentable {
                 return true
             }
             return false
+        }
+        
+        // MARK: - ARCoachingOverlayViewDelegate
+        func coachingOverlayViewDidRequestSessionReset(_ coachingOverlayView: ARCoachingOverlayView) {
+            guard let arView = arView else { return }
+
+            // Reset the session
+            let configuration = ARWorldTrackingConfiguration()
+            if let optimalFormat = ARWorldTrackingConfiguration.supportedVideoFormats.first(where: {
+                $0.imageResolution.height == 1080 && $0.framesPerSecond == 60
+            }) ?? ARWorldTrackingConfiguration.supportedVideoFormats.first(where: {
+                $0.imageResolution.height <= 1080
+            }) {
+                configuration.videoFormat = optimalFormat
+            }
+            configuration.planeDetection = [.horizontal, .vertical]
+            configuration.environmentTexturing = .automatic
+            configuration.isAutoFocusEnabled = true
+            if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+                configuration.sceneReconstruction = .mesh
+            }
+            if ARWorldTrackingConfiguration.supportsFrameSemantics(.smoothedSceneDepth) {
+                configuration.frameSemantics.insert(.smoothedSceneDepth)
+            }
+            arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+
+            // Custom actions to restart the AR experience:
+            for (_, anchor) in modelAnchors {
+                anchor.children.removeAll()
+                arView.scene.removeAnchor(anchor)
+                anchor.removeFromParent()
+            }
+            for (_, entity) in loadedEntities {
+                entity.removeFromParent()
+            }
+            modelAnchors.removeAll()
+            loadedEntities.removeAll()
+            baseDimensions.removeAll()
+            currentSelectedIndicatorId = nil
+            pendingEntity?.removeFromParent()
+            pendingEntity = nil
+            currentLoadingId = nil
+            currentPendingModelId = nil
+
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.onSessionReset?()
+            }
+        }
+        
+        func coachingOverlayViewWillActivate(_ coachingOverlayView: ARCoachingOverlayView) {
+            // Standard onboarding instruction displayed in screen center
+        }
+        
+        func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView) {
+            // Standard onboarding instruction completed
         }
     }
 }

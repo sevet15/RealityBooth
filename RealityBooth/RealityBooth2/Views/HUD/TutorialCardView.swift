@@ -13,7 +13,7 @@ struct TutorialCardView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Tutorial")
                 .font(.title2.bold())
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.bottom, 2)
             
@@ -45,17 +45,17 @@ struct TutorialCardView: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: iconName)
                 .font(.title2)
-                .foregroundColor(.blue)
+                .foregroundStyle(.blue)
                 .frame(width: 32)
                 .padding(.top, 2)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.white)
                 Text(description)
                     .font(.footnote)
-                    .foregroundColor(.white.opacity(0.75))
+                    .foregroundStyle(.white.opacity(0.75))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

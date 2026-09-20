@@ -19,11 +19,11 @@ struct TopHUDBarView: View {
             if !viewModel.models.isEmpty {
                 HStack(spacing: isRegular ? 10 : 8) {
                     Image(systemName: "cube.fill")
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .font(isRegular ? .body.weight(.semibold) : .subheadline.weight(.semibold))
                     Text("\(viewModel.models.count) of \(ARConstants.maxSimultaneousModels) Models")
                         .font(isRegular ? .body.weight(.semibold) : .subheadline.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 }
                 .padding(.horizontal, isRegular ? 20 : 16)
                 .padding(.vertical, isRegular ? 11 : 8)
@@ -43,7 +43,7 @@ struct TopHUDBarView: View {
                         Text("Clear All")
                     }
                     .font(isRegular ? .body.weight(.semibold) : .subheadline.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, isRegular ? 20 : 16)
                     .padding(.vertical, isRegular ? 11 : 8)
                     .frame(minHeight: isRegular ? 44 : 38)

@@ -36,27 +36,29 @@ final class PhotoLibraryManager {
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { _ in }
     }
     
-    /// Asynchronously saves UIImage directly into Photos library without blocking main thread
+    /// Asynchronously saves UIImage directly into Photos library using modern Swift concurrency
+    func saveImage(_ image: UIImage) async throws {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            throw PhotoSaveError.notAuthorized
+        }
+        
+        try await PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.creationRequestForAsset(from: image)
+        }
+    }
+    
+    /// Legacy completion handler wrapper for backward compatibility
     func saveImage(_ image: UIImage, completion: @escaping (Result<Void, Error>) -> Void) {
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            guard status == .authorized || status == .limited else {
-                DispatchQueue.main.async {
-                    completion(.failure(PhotoSaveError.notAuthorized))
+        Task {
+            do {
+                try await saveImage(image)
+                await MainActor.run {
+                    completion(.success(()))
                 }
-                return
-            }
-            
-            PHPhotoLibrary.shared().performChanges({
-                PHAssetChangeRequest.creationRequestForAsset(from: image)
-            }) { success, error in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        completion(.failure(PhotoSaveError.underlying(error)))
-                    } else if success {
-                        completion(.success(()))
-                    } else {
-                        completion(.failure(PhotoSaveError.unknownError))
-                    }
+            } catch {
+                await MainActor.run {
+                    completion(.failure(error))
                 }
             }
         }
